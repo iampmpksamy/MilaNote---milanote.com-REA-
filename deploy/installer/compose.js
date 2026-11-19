@@ -23,6 +23,7 @@
     registration: 'invite',
     adminPath: '/admin',
     maxUploadMb: 25,
+    maxMediaMb: 200,
     smtpEnabled: false,
     smtpHost: '',
     smtpPort: 587,
@@ -54,6 +55,11 @@
     if (o && o.smtpEnabled === false) r.smtpEnabled = false;
     if (o && o.s3Enabled === false) r.s3Enabled = false;
     return r;
+  }
+
+  /** The largest request the gateway lets through: pictures or audio/video, whichever is larger. */
+  function maxBody(o) {
+    return Math.max(Number(o.maxUploadMb) || 0, Number(o.maxMediaMb) || 0);
   }
 
   /** Returns a list of problems; empty when the settings can be used. */
@@ -88,6 +94,8 @@
     if (!/^\/[a-z0-9-]{1,40}$/.test(o.adminPath) || ['/api', '/setup', '/login', '/invite', '/reset', '/account'].indexOf(o.adminPath) >= 0) e.push('Admin path: like /admin (lower-case letters, digits, dashes).');
     var mb = Number(o.maxUploadMb);
     if (!Number.isInteger(mb) || mb < 1 || mb > 2048) e.push('Maximum upload: 1 to 2048 MB.');
+    var mmb = Number(o.maxMediaMb);
+    if (!Number.isInteger(mmb) || mmb < 1 || mmb > 4096) e.push('Maximum audio/video upload: 1 to 4096 MB.');
     if (o.smtpEnabled) {
       if (!/^[a-z0-9.-]+$/i.test(o.smtpHost)) e.push('SMTP server: a host name such as smtp.example.com.');
       var sp = Number(o.smtpPort);
@@ -133,6 +141,7 @@
       ['ADMIN_PATH', v('ADMIN_PATH', o.adminPath)],
       ['ADMIN_MFA_REQUIRED', 'true'],
       ['MAX_UPLOAD_MB', v('MAX_UPLOAD_MB', o.maxUploadMb)],
+      ['MAX_MEDIA_MB', v('MAX_MEDIA_MB', o.maxMediaMb)],
       ['STORAGE_DRIVER', v('STORAGE_DRIVER', o.s3Enabled ? 's3' : 'local')],
       ['SMTP_ENABLED', v('SMTP_ENABLED', o.smtpEnabled ? 'true' : 'false')],
       ['SMTP_HOST', v('SMTP_HOST', o.smtpHost)],
@@ -289,7 +298,8 @@
         ['APP_PUBLIC_URL', 'The address people open, e.g. https://notes.example.com (used in invitation links)'],
         ['TZ', 'Time zone for scheduled backups'],
         ['REGISTRATION_MODE', 'invite (default), approval, open or closed'],
-        ['MAX_UPLOAD_MB', 'Largest picture upload in MB (keep the gateway value the same)'],
+        ['MAX_UPLOAD_MB', 'Largest picture upload in MB (the gateway allows the larger of this and MAX_MEDIA_MB)'],
+        ['MAX_MEDIA_MB', 'Largest audio or video upload in MB (keep the gateway NB_MAX_BODY_MB at the larger of the two)'],
         ['SMTP_ENABLED', 'true to send e-mail; the SMTP password is entered later in /admin'],
         ['BACKUP_TIME', 'Daily backup time (HH:MM)'],
       ].forEach(function (p) {
@@ -347,7 +357,8 @@
     L.push('      noteboard-api:');
     L.push('        condition: service_healthy');
     L.push('    environment:');
-    L.push('      NB_MAX_UPLOAD_MB: ' + q(C ? '${MAX_UPLOAD_MB:-' + o.maxUploadMb + '}' : o.maxUploadMb));
+    // The gateway's request size limit: the larger of the picture and the audio/video limits.
+    L.push('      NB_MAX_BODY_MB: ' + q(C ? '${MAX_MEDIA_MB:-' + maxBody(o) + '}' : maxBody(o)));
     L.push('      TZ: ' + q(C ? '${TZ:-' + o.tz + '}' : o.tz));
     L.push('    ports:');
     L.push('      - ' + q(port));
@@ -420,6 +431,8 @@
       'REGISTRATION_MODE=' + o.registration,
       'ADMIN_PATH=' + o.adminPath,
       'MAX_UPLOAD_MB=' + o.maxUploadMb,
+      '# Audio and video cards; the gateway allows this size too, so keep it the larger of the two.',
+      'MAX_MEDIA_MB=' + o.maxMediaMb,
       'STORAGE_DRIVER=' + (o.s3Enabled ? 's3' : 'local'),
       'SMTP_ENABLED=' + (o.smtpEnabled ? 'true' : 'false'),
       'SMTP_HOST=' + o.smtpHost,
@@ -460,7 +473,7 @@
       'New accounts: ' + o.registration + ' · admin panel at ' + o.adminPath + ' (two-step sign-in required)',
       'E-mail: ' + (o.smtpEnabled ? o.smtpHost + ':' + o.smtpPort + ' (enter the password in the admin panel)' : 'off — share invitation and reset links yourself'),
       'Pictures: ' + (o.s3Enabled ? 'S3 bucket ' + o.s3Bucket + ' at ' + o.s3Endpoint + ' (set S3_SECRET_KEY on the server)' : 'local folder ' + o.dataPath + '/uploads'),
-      'Max upload: ' + o.maxUploadMb + ' MB',
+      'Max upload: ' + o.maxUploadMb + ' MB pictures, ' + o.maxMediaMb + ' MB audio/video',
     ];
     return lines.join('\n');
   }
@@ -489,7 +502,7 @@
         'Your own reverse proxy (Nginx, Caddy, Traefik, Nginx Proxy Manager) with HTTPS:',
         '1. Point DNS for ' + host + ' to your public IP; forward 443 to the proxy (not to Noteboard).',
         '2. Proxy https://' + host + ' to http://' + (o.bind === '127.0.0.1' ? '127.0.0.1' : '<server-LAN-IP>') + ':' + o.port + ' — see deploy/nginx/reverse-proxy.conf.',
-        '   Pass Host, X-Forwarded-For, X-Forwarded-Proto and WebSocket upgrade headers; set client_max_body_size ' + o.maxUploadMb + 'm.',
+        '   Pass Host, X-Forwarded-For, X-Forwarded-Proto and WebSocket upgrade headers; set client_max_body_size ' + maxBody(o) + 'm.',
         '3. Keep the proxy on a private address so its forwarded headers are trusted (TRUSTED_PROXIES=' + o.trustedProxies + ').',
         '4. Never forward ports for MongoDB or Redis: they are not published at all.',
       ].join('\n');

@@ -5,17 +5,24 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Readable } from 'node:stream';
+import { Readable, Transform } from 'node:stream';
 import type { Config } from '../config';
 
 export interface BlobStore {
   readonly driver: 'local' | 's3';
   put(key: string, data: Buffer): Promise<void>;
-  get(key: string): Promise<Readable | null>;
+  /** The file, or only bytes `range.start`..`range.end` (inclusive) of it. */
+  get(key: string, range?: ByteRange): Promise<Readable | null>;
   delete(key: string): Promise<void>;
   /** Free and total bytes on the disk holding the files, where known. */
   space(): Promise<{ free: number; total: number } | null>;
   check(): Promise<string | null>;
+}
+
+/** Inclusive byte positions, as in an HTTP Range header. */
+export interface ByteRange {
+  start: number;
+  end: number;
 }
 
 const SAFE_KEY = /^[a-z0-9_-]+(\/[a-z0-9._-]+)+$/i;
@@ -34,14 +41,14 @@ export class LocalBlobs implements BlobStore {
     await fs.promises.writeFile(tmp, data, { mode: 0o640 });
     await fs.promises.rename(tmp, f);
   }
-  async get(key: string) {
+  async get(key: string, range?: ByteRange) {
     const f = this.file(key);
     try {
       await fs.promises.access(f);
     } catch {
       return null;
     }
-    return fs.createReadStream(f);
+    return range ? fs.createReadStream(f, { start: range.start, end: range.end }) : fs.createReadStream(f);
   }
   async delete(key: string) {
     await fs.promises.rm(this.file(key), { force: true });
@@ -101,20 +108,23 @@ export class S3Blobs implements BlobStore {
     };
   }
 
-  private async req(method: string, key: string, body: Buffer | null = null) {
+  private async req(method: string, key: string, body: Buffer | null = null, extra: Record<string, string> = {}) {
     const url = this.url(key);
-    const res = await fetch(url, { method, headers: this.sign(method, url, body), body: body ? new Uint8Array(body) : undefined });
+    // Extra headers (Range) are not signed; S3 accepts unsigned headers outside the signed list.
+    const res = await fetch(url, { method, headers: { ...this.sign(method, url, body), ...extra }, body: body ? new Uint8Array(body) : undefined });
     return res;
   }
   async put(key: string, data: Buffer) {
     const r = await this.req('PUT', key, data);
     if (!r.ok) throw new Error(`S3 upload failed: ${r.status}`);
   }
-  async get(key: string) {
-    const r = await this.req('GET', key);
+  async get(key: string, range?: ByteRange) {
+    const r = await this.req('GET', key, null, range ? { range: `bytes=${range.start}-${range.end}` } : {});
     if (r.status === 404) return null;
     if (!r.ok || !r.body) throw new Error(`S3 download failed: ${r.status}`);
-    return Readable.fromWeb(r.body as never);
+    const body = Readable.fromWeb(r.body as never);
+    // A store that ignores Range sends the whole object (200): cut the asked part out of it.
+    return range && r.status !== 206 ? body.pipe(sliceBytes(range)) : body;
   }
   async delete(key: string) {
     const r = await this.req('DELETE', key);
@@ -134,6 +144,19 @@ export class S3Blobs implements BlobStore {
   }
 }
 
+/** Passes on only bytes `start`..`end` (inclusive) of a stream. */
+export function sliceBytes({ start, end }: ByteRange): Transform {
+  let pos = 0;
+  return new Transform({
+    transform(chunk: Buffer, _enc, done) {
+      const from = Math.max(0, start - pos);
+      const to = Math.min(chunk.length, end + 1 - pos);
+      pos += chunk.length;
+      done(null, to > from ? chunk.subarray(from, to) : undefined);
+    },
+  });
+}
+
 /** Recognises the picture formats the boards accept from their first bytes. */
 export function sniffImage(b: Buffer): string | null {
   if (b.length < 12) return null;
@@ -144,6 +167,62 @@ export function sniffImage(b: Buffer): string | null {
   if (b[0] === 0x42 && b[1] === 0x4d) return 'image/bmp';
   if (b.readUInt32BE(0) === 0x00000100) return 'image/x-icon';
   return null;
+}
+
+/** ISO base media ('ftyp') brands: audio-only files, and audio/video containers. */
+const MP4_AUDIO_BRANDS = ['M4A ', 'M4B ', 'M4P ', 'F4A ', 'F4B '];
+const MP4_VIDEO_BRANDS = [
+  'isom', 'iso2', 'iso3', 'iso4', 'iso5', 'iso6', 'iso7', 'iso8', 'iso9', 'mp41', 'mp42', 'mp71', 'avc1', 'hvc1', 'hev1', 'av01',
+  'M4V ', 'M4VH', 'M4VP', 'dash', 'msnv', 'MSNV', 'mmp4', 'f4v ', 'F4V ', 'f4p ', 'F4P ', '3gp4', '3gp5', '3gp6', '3gp7', '3g2a', '3g2b', 'XAVC', 'NDAS', 'MP4 ',
+];
+
+/**
+ * Recognises the audio and video formats the boards accept from their first bytes (never the file
+ * name). `declared` is the upload's Content-Type: it only decides between audio and video when the
+ * container can hold either (MP4, WebM, Ogg).
+ */
+export function sniffMedia(b: Buffer, declared = ''): string | null {
+  if (b.length < 12) return null;
+  const audio = /^\s*audio\//i.test(declared);
+  const video = /^\s*video\//i.test(declared);
+  const at = (i: number, n: number) => b.toString('latin1', i, i + n);
+  if (at(0, 3) === 'ID3') return 'audio/mpeg';
+  if (at(0, 4) === 'fLaC') return 'audio/flac';
+  if (at(0, 4) === 'OggS') return video ? 'video/ogg' : 'audio/ogg';
+  if (at(0, 4) === 'RIFF' && at(8, 4) === 'WAVE') return 'audio/wav';
+  if (b.readUInt32BE(0) === 0x1a45dfa3) return audio ? 'audio/webm' : 'video/webm';
+  if (at(4, 4) === 'ftyp') {
+    const size = b.readUInt32BE(0);
+    const brands = [at(8, 4)];
+    for (let i = 16; i + 4 <= Math.min(size, b.length, 256); i += 4) brands.push(at(i, 4));
+    if (brands[0] === 'qt  ') return audio ? 'audio/mp4' : 'video/quicktime';
+    if (MP4_AUDIO_BRANDS.includes(brands[0])) return 'audio/mp4';
+    if (MP4_VIDEO_BRANDS.includes(brands[0])) return audio ? 'audio/mp4' : 'video/mp4';
+    // An unusual main brand: go by the compatible ones (pictures such as HEIC match neither list).
+    if (brands.some((x) => MP4_AUDIO_BRANDS.includes(x))) return 'audio/mp4';
+    if (brands.some((x) => MP4_VIDEO_BRANDS.includes(x))) return audio ? 'audio/mp4' : 'video/mp4';
+    if (brands.includes('qt  ')) return audio ? 'audio/mp4' : 'video/quicktime';
+    return null;
+  }
+  // MPEG audio frame without an ID3 tag: 11 sync bits, a real version and layer, a valid bit rate
+  // and sample rate (AAC ADTS has layer 0 and is not MP3).
+  if (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) {
+    const version = (b[1] >> 3) & 3;
+    const layer = (b[1] >> 1) & 3;
+    const rate = b[2] >> 4;
+    const sample = (b[2] >> 2) & 3;
+    if (version !== 1 && layer !== 0 && rate !== 0xf && rate !== 0 && sample !== 3) return 'audio/mpeg';
+  }
+  return null;
+}
+
+/** What an uploaded file is: a picture (small limit) or audio/video (larger limit), or null. */
+export function sniffAsset(b: Buffer, declared = ''): { mime: string; media: boolean } | null {
+  // Media first: an MP4 whose 'ftyp' box is 256 bytes long would otherwise look like an icon.
+  const media = sniffMedia(b, declared);
+  if (media) return { mime: media, media: true };
+  const image = sniffImage(b);
+  return image ? { mime: image, media: false } : null;
 }
 
 export async function dirSize(dir: string): Promise<number> {

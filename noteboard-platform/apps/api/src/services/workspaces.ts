@@ -9,7 +9,7 @@ import type { Board, Store } from '@noteboard/board-model';
 import { STORE_VERSION } from '@noteboard/board-model';
 import { sha256, uuid } from '../crypto';
 import type { AssetDoc, BoardDoc, Database, WorkspaceDoc } from '../db';
-import { type BlobStore, sniffImage } from './blobs';
+import { type BlobStore, type ByteRange, sniffAsset } from './blobs';
 import { checkStore, SAFE_ASSET_NAME } from './store-check';
 
 export class ApiFail extends Error {
@@ -128,12 +128,33 @@ export class Workspaces {
     await this.d.c.workspaces.updateOne({ _id: ws._id }, { $set: { prefs: prefs as Record<string, unknown> } });
   }
 
-  // ---------- pictures ----------
+  // ---------- pictures, audio and video ----------
 
-  async putAsset(ws: WorkspaceDoc, name: string, data: Buffer, quotaBytes: number): Promise<AssetDoc> {
+  /**
+   * Stores a file for the boards. The type comes from the content (never the name); `declared` is
+   * the upload's Content-Type and only tells audio from video in containers that hold either.
+   * Pictures may be up to `limits.imageMb`, audio and video up to `limits.mediaMb`.
+   */
+  async putAsset(
+    ws: WorkspaceDoc,
+    name: string,
+    data: Buffer,
+    quotaBytes: number,
+    declared = '',
+    limits: { imageMb: number; mediaMb: number } = { imageMb: 25, mediaMb: 200 },
+  ): Promise<AssetDoc> {
     if (!SAFE_ASSET_NAME.test(name)) throw new ApiFail(400, 'invalid_name', 'That file name is not allowed');
-    const mime = sniffImage(data);
-    if (!mime) throw new ApiFail(415, 'unsupported_type', 'Only PNG, JPEG, GIF, WebP, BMP and ICO pictures can be uploaded');
+    const kind = sniffAsset(data, declared);
+    if (!kind)
+      throw new ApiFail(
+        415,
+        'unsupported_type',
+        'Only pictures (PNG, JPEG, GIF, WebP, BMP, ICO), audio (MP3, M4A, Ogg, WAV, FLAC, WebM) and video (MP4, MOV, WebM) can be uploaded',
+      );
+    const mime = kind.mime;
+    const maxMb = kind.media ? limits.mediaMb : limits.imageMb;
+    if (data.length > maxMb * 1048576)
+      throw new ApiFail(413, 'too_large', `${kind.media ? 'Audio and video files' : 'Pictures'} can be at most ${maxMb} MB`);
     const prev = await this.d.c.assets.findOne({ workspaceId: ws._id, name });
     if (quotaBytes > 0) {
       const used = ws.usage.assetBytes - (prev?.size ?? 0);
@@ -149,10 +170,15 @@ export class Workspaces {
     return doc;
   }
 
-  async getAsset(ws: WorkspaceDoc, name: string) {
-    const a = await this.d.c.assets.findOne({ workspaceId: ws._id, name });
+  /** The file's record, without opening it (to answer Range requests before reading). */
+  async findAsset(ws: WorkspaceDoc, name: string): Promise<AssetDoc | null> {
+    return this.d.c.assets.findOne({ workspaceId: ws._id, name });
+  }
+
+  async getAsset(ws: WorkspaceDoc, name: string, range?: ByteRange) {
+    const a = await this.findAsset(ws, name);
     if (!a) return null;
-    const stream = await this.blobs.get(a.key);
+    const stream = await this.blobs.get(a.key, range);
     return stream ? { asset: a, stream } : null;
   }
 

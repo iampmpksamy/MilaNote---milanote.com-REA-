@@ -29,6 +29,6 @@ COPY apps/web/gateway/empty.conf /etc/nginx/conf.d/default.conf
 COPY apps/web/gateway/noteboard.conf.template /etc/nginx/templates/noteboard.conf.template
 COPY apps/web/gateway/security-headers.conf apps/web/gateway/proxy.conf /etc/nginx/snippets/
 COPY --from=build --chown=0:0 /src/dist/apps/web/browser/ /usr/share/nginx/html/
-ENV NB_API_UPSTREAM=noteboard-api:3000 NB_MAX_UPLOAD_MB=25 NB_RESOLVER=127.0.0.11
+ENV NB_API_UPSTREAM=noteboard-api:3000 NB_MAX_BODY_MB=200 NB_RESOLVER=127.0.0.11
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1

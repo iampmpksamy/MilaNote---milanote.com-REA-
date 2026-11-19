@@ -27,6 +27,7 @@ export async function discovery(ctx: Ctx) {
       adminMfaRequired: ctx.cfg.adminMfaRequired,
       import: ['desktop-boards-json', 'browser-local'],
       maxUploadMb: ctx.cfg.maxUploadMb,
+      maxMediaMb: ctx.cfg.maxMediaMb,
     },
     branding: { accent: s.branding.accent, logo: !!s.branding.logo, favicon: !!s.branding.favicon },
     maintenance: s.maintenance.enabled ? { message: s.maintenance.message } : null,

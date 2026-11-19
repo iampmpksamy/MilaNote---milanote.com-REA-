@@ -23,6 +23,7 @@ services:
       ADMIN_PATH: "${ADMIN_PATH:-/admin}"
       ADMIN_MFA_REQUIRED: "true"
       MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-25}"
+      MAX_MEDIA_MB: "${MAX_MEDIA_MB:-200}"
       STORAGE_DRIVER: "${STORAGE_DRIVER:-local}"
       SMTP_ENABLED: "${SMTP_ENABLED:-false}"
       SMTP_HOST: "${SMTP_HOST:-}"
@@ -113,6 +114,7 @@ services:
       ADMIN_PATH: "${ADMIN_PATH:-/admin}"
       ADMIN_MFA_REQUIRED: "true"
       MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-25}"
+      MAX_MEDIA_MB: "${MAX_MEDIA_MB:-200}"
       STORAGE_DRIVER: "${STORAGE_DRIVER:-local}"
       SMTP_ENABLED: "${SMTP_ENABLED:-false}"
       SMTP_HOST: "${SMTP_HOST:-}"
@@ -160,6 +162,7 @@ services:
       ADMIN_PATH: "${ADMIN_PATH:-/admin}"
       ADMIN_MFA_REQUIRED: "true"
       MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-25}"
+      MAX_MEDIA_MB: "${MAX_MEDIA_MB:-200}"
       STORAGE_DRIVER: "${STORAGE_DRIVER:-local}"
       SMTP_ENABLED: "${SMTP_ENABLED:-false}"
       SMTP_HOST: "${SMTP_HOST:-}"
@@ -205,7 +208,7 @@ services:
       noteboard-api:
         condition: service_healthy
     environment:
-      NB_MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-25}"
+      NB_MAX_BODY_MB: "${MAX_MEDIA_MB:-200}"
       TZ: "${TZ:-Asia/Kolkata}"
     ports:
       - "${APP_BIND:-0.0.0.0}:${APP_PORT:-8765}:8080"
