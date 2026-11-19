@@ -16,15 +16,47 @@ export interface TodoItem {
   done: boolean;
 }
 
+/** One pen stroke of a sketch: points as [x0, y0, x1, y1, …] in the sketch's own 0–1000 space. */
+export interface Stroke {
+  /** CSS colour (#rrggbb). */
+  color: string;
+  /** Pen width in the 0–1000 space. */
+  width: number;
+  points: number[];
+  /** Highlighter strokes are drawn half-transparent. */
+  marker?: boolean;
+}
+
+export interface CommentEntry {
+  text: string;
+  /** Who wrote it (name shown; the account's id on a server). */
+  author: string;
+  /** Unix seconds. */
+  at: number;
+}
+
 export type Content =
   | { Note: { text: string } }
   | { Todo: { title: string; items: TodoItem[] } }
   | { Link: { url: string; title: string } }
   | { Image: { file: string; caption: string; aspect: number } }
   | { Board: { board: BoardId } }
-  | { Column: { title: string; children: CardId[] } };
+  | { Column: { title: string; children: CardId[] } }
+  // 3.0.0-alpha.6: more card kinds (not readable by the legacy desktop app 2.x)
+  | { Heading: { text: string; size: 1 | 2 | 3 } }
+  | { Color: { hex: string; name: string } }
+  | { Document: { title: string; text: string } }
+  | { Sketch: { strokes: Stroke[]; aspect: number; background: boolean } }
+  | { Audio: { file: string; title: string; duration: number } }
+  | { Video: { url: string; file: string; title: string; aspect: number } }
+  | { Map: { query: string; label: string; lat: number | null; lng: number | null; zoom: number } }
+  | { Comment: { entries: CommentEntry[]; resolved: boolean } }
+  | { Table: { title: string; cells: string[][] } };
 
-export type ContentKind = 'Note' | 'Todo' | 'Link' | 'Image' | 'Board' | 'Column';
+export type ContentKind = 'Note' | 'Todo' | 'Link' | 'Image' | 'Board' | 'Column' | 'Heading' | 'Color' | 'Document' | 'Sketch' | 'Audio' | 'Video' | 'Map' | 'Comment' | 'Table';
+
+/** Kinds the legacy desktop app (2.x) can read; exports for it leave the others out. */
+export const DESKTOP_KINDS: ContentKind[] = ['Note', 'Todo', 'Link', 'Image', 'Board', 'Column'];
 
 export interface Card {
   id: CardId;
@@ -107,4 +139,13 @@ export const KIND_NAMES: Record<ContentKind, string> = {
   Image: 'Image',
   Board: 'Board',
   Column: 'Column',
+  Heading: 'Heading',
+  Color: 'Color',
+  Document: 'Document',
+  Sketch: 'Sketch',
+  Audio: 'Audio',
+  Video: 'Video',
+  Map: 'Map',
+  Comment: 'Comment',
+  Table: 'Table',
 };

@@ -1,5 +1,6 @@
 import { ApplicationRef, ChangeDetectionStrategy, Component, ElementRef, ViewEncapsulation, afterRenderEffect, computed, forwardRef, inject, input } from '@angular/core';
 import { Card, CardId, TodoItem, findCard, renderNote } from '@noteboard/board-model';
+import { AudioCard, ColorCard, CommentCard, DocumentCard, HeadingCard, MapCard, SketchCard, TableCard, VideoCard } from './cards';
 import { BOARD_COLORS, CARD_COLORS, boardIsDark } from './prefs';
 import { Workspace } from './workspace.service';
 
@@ -11,7 +12,7 @@ const domainOf = (url: string) => url.trim().replace(/^[a-z]+:\/\//i, '').split(
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   // A column shows its cards with this same component.
-  imports: [forwardRef(() => CardView)],
+  imports: [forwardRef(() => CardView), HeadingCard, ColorCard, DocumentCard, SketchCard, AudioCard, VideoCard, MapCard, CommentCard, TableCard],
   host: {
     '[class]': 'hostClass()',
     '[attr.data-card]': 'card().id',
@@ -112,6 +113,15 @@ const domainOf = (url: string) => url.trim().replace(/^[a-z]+:\/\//i, '').split(
           }
         </div>
       }
+      @case ('Heading') { <nb-heading-card [card]="c" [editing]="editing()" /> }
+      @case ('Color') { <nb-color-card [card]="c" [editing]="editing()" /> }
+      @case ('Document') { <nb-document-card [card]="c" [editing]="editing()" /> }
+      @case ('Sketch') { <nb-sketch-card [card]="c" [editing]="editing()" /> }
+      @case ('Audio') { <nb-audio-card [card]="c" [editing]="editing()" /> }
+      @case ('Video') { <nb-video-card [card]="c" [editing]="editing()" /> }
+      @case ('Map') { <nb-map-card [card]="c" [editing]="editing()" /> }
+      @case ('Comment') { <nb-comment-card [card]="c" [editing]="editing()" /> }
+      @case ('Table') { <nb-table-card [card]="c" [editing]="editing()" /> }
     }
     @if (c.locked) { <span class="nb-lock" title="Locked">🔒</span> }
   `,
@@ -141,8 +151,9 @@ export class CardView {
   });
   readonly fill = computed(() => {
     const k = this.kind();
-    if (k === 'Board' || k === 'Column') return null;
-    if (k === 'Image') return 'var(--nb-card)';
+    if (k === 'Board' || k === 'Column' || k === 'Heading') return null;
+    if (k === 'Sketch' && !(this.card().content as { Sketch: { background: boolean } }).Sketch.background) return null;
+    if (k === 'Image' || k === 'Video' || k === 'Map' || k === 'Color') return 'var(--nb-card)';
     const c = CARD_COLORS[this.card().color % CARD_COLORS.length];
     return this.ws.dark() ? c[2] : c[1];
   });

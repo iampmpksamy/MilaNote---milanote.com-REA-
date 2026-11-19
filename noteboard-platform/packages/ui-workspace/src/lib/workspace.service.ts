@@ -43,16 +43,38 @@ import { Pt, Rect, View, fitView, freeSpot, rect as mkRect } from '@noteboard/ca
 import { DEFAULT_PREFS, Prefs } from './prefs';
 import { STORAGE } from './storage';
 
-export type Tool = 'Note' | 'Link' | 'To-do' | 'Line' | 'Board' | 'Column' | 'Comment' | 'Table' | 'Add image' | 'Upload' | 'Draw';
-export const TOOLS: (Tool | null)[] = ['Note', 'Link', 'To-do', 'Line', 'Board', 'Column', 'Comment', 'Table', null, 'Add image', 'Upload', 'Draw'];
-export const UNAVAILABLE: Tool[] = ['Comment', 'Table', 'Draw'];
+export type Tool =
+  | 'Note'
+  | 'Link'
+  | 'To-do'
+  | 'Line'
+  | 'Board'
+  | 'Column'
+  | 'Comment'
+  | 'Table'
+  | 'More'
+  | 'Add image'
+  | 'Upload'
+  | 'Draw'
+  | 'Sketch'
+  | 'Color'
+  | 'Document'
+  | 'Audio'
+  | 'Map'
+  | 'Video'
+  | 'Heading';
+export const TOOLS: (Tool | null)[] = ['Note', 'Link', 'To-do', 'Line', 'Board', 'Column', 'Comment', 'Table', 'More', null, 'Add image', 'Upload', 'Draw'];
+/** The tools behind "More". */
+export const MORE_TOOLS: Tool[] = ['Sketch', 'Color', 'Document', 'Audio', 'Map', 'Video', 'Heading'];
+export const UNAVAILABLE: Tool[] = [];
 
 export type Place = { at: Pt } | { column: CardId; index: number } | { unsorted: true };
 
 export type Popup =
   | { kind: 'card-color' | 'board-color' | 'board-icon'; card: CardId; y: number }
   | { kind: 'line-color' | 'line-weight' | 'line-label'; arrow: number; y: number }
-  | { kind: 'search' | 'help' };
+  | { kind: 'search' | 'help' }
+  | { kind: 'more'; y: number };
 
 export type MenuTarget = { card: CardId } | { canvas: Pt } | { arrow: number };
 
@@ -70,6 +92,16 @@ const DEFAULT_SIZE: Record<string, Pt> = {
   Link: { x: 280, y: 80 },
   Column: { x: 290, y: 130 },
   Board: { x: 124, y: 120 },
+  Comment: { x: 280, y: 90 },
+  Table: { x: 420, y: 140 },
+  Sketch: { x: 320, y: 240 },
+  Draw: { x: 320, y: 240 },
+  Color: { x: 200, y: 180 },
+  Document: { x: 260, y: 150 },
+  Audio: { x: 300, y: 90 },
+  Map: { x: 320, y: 240 },
+  Video: { x: 360, y: 240 },
+  Heading: { x: 360, y: 60 },
 };
 
 @Injectable()
@@ -453,6 +485,43 @@ export class Workspace {
       case 'Column':
         content = { Column: { title: '', children: [] } };
         break;
+      case 'Heading':
+        content = { Heading: { text: '', size: 1 } };
+        break;
+      case 'Color':
+        content = { Color: { hex: '#5c7ff5', name: '' } };
+        break;
+      case 'Document':
+        content = { Document: { title: '', text: '' } };
+        break;
+      case 'Sketch':
+      case 'Draw':
+        content = { Sketch: { strokes: [], aspect: 0.75, background: tool === 'Sketch' } };
+        break;
+      case 'Audio':
+        content = { Audio: { file: '', title: '', duration: 0 } };
+        break;
+      case 'Video':
+        content = { Video: { url: '', file: '', title: '', aspect: 0.5625 } };
+        break;
+      case 'Map':
+        content = { Map: { query: '', label: '', lat: null, lng: null, zoom: 13 } };
+        break;
+      case 'Comment':
+        content = { Comment: { entries: [], resolved: false } };
+        break;
+      case 'Table':
+        content = {
+          Table: {
+            title: '',
+            cells: [
+              ['', '', ''],
+              ['', '', ''],
+              ['', '', ''],
+            ],
+          },
+        };
+        break;
       case 'Board': {
         let b = 0;
         this.checkpoint();
@@ -469,6 +538,25 @@ export class Workspace {
     if ('unsorted' in place) this.setPrefs({ drawer_open: true });
     return id;
   }
+
+  /**
+   * Stores a file (audio, video …) with the boards and returns its name for the card. The name has
+   * a random part, so devices adding files offline at the same time can't overwrite each other's.
+   */
+  async addMedia(file: Blob, ext: string): Promise<string> {
+    const rnd = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, '0')).join('');
+    const name = `${newId(this.data)}-${rnd}.${ext.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin'}`;
+    await this.storage.putImage(name, file);
+    return name;
+  }
+
+  /** An address the page can play or show a stored file from (or null when it isn't available). */
+  mediaUrl(name: string): Promise<string | null> {
+    return name ? this.storage.imageUrl(name) : Promise.resolve(null);
+  }
+
+  /** The signed-in person's name for comments (set by the app shell; "You" otherwise). */
+  readonly authorName = signal((globalThis as { nbAuthorName?: string }).nbAuthorName ?? 'You');
 
   async addPicture(file: File, place: Place): Promise<void> {
     const dims = await new Promise<{ w: number; h: number }>((resolve) => {

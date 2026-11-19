@@ -18,7 +18,7 @@ import { CardView } from './card';
 import { Icon } from './icon';
 import { BOARD_COLORS, BOARD_ICONS, CARD_COLORS, LINE_COLORS, SCALES } from './prefs';
 import { Settings } from './settings';
-import { Place, TOOLS, Tool, UNAVAILABLE, Workspace } from './workspace.service';
+import { MORE_TOOLS, Place, TOOLS, Tool, UNAVAILABLE, Workspace } from './workspace.service';
 
 /** Clipboard of the native apps (phones have no Ctrl+V); set by the app shell as `window.nbClipboard`. */
 interface NativeClipboard {
@@ -52,6 +52,7 @@ export class WorkspaceView {
   private searchFocused = false;
 
   readonly tools = TOOLS;
+  readonly moreTools = MORE_TOOLS;
   readonly unavailable = UNAVAILABLE;
   readonly cardColors = CARD_COLORS;
   readonly boardColors = BOARD_COLORS;
@@ -311,7 +312,8 @@ export class WorkspaceView {
     }
     const shell = el.closest('.nb-shell')!.getBoundingClientRect();
     const y = el.getBoundingClientRect().top - shell.top;
-    if (extra.card !== undefined) this.ws.popup.set({ kind: kind as 'card-color', card: extra.card, y });
+    if (kind === 'more') this.ws.popup.set({ kind: 'more', y });
+    else if (extra.card !== undefined) this.ws.popup.set({ kind: kind as 'card-color', card: extra.card, y });
     else if (extra.arrow !== undefined) {
       if (kind === 'line-label') this.labelText.set(this.ws.board().arrows.find((a) => a.id === extra.arrow)?.label ?? '');
       this.ws.popup.set({ kind: kind as 'line-color', arrow: extra.arrow, y });

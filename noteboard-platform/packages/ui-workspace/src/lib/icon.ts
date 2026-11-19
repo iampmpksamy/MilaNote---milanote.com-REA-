@@ -52,6 +52,36 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           <circle cx="16" cy="16" r="2.1" fill="currentColor" stroke="none" />
           <circle cx="22" cy="16" r="2.1" fill="currentColor" stroke="none" />
         }
+        @case ('Sketch') {
+          <rect class="card" x="4" y="5" width="24" height="22" rx="2.5" />
+          <path d="M9 21c2-5 4-8 6-6s-1 5 1 5 3-6 7-9" />
+        }
+        @case ('Color') {
+          <rect x="5" y="5" width="13" height="13" rx="2" fill="#4fb3a9" stroke="none" />
+          <rect x="13" y="12" width="14" height="14" rx="2" fill="#e65c7b" stroke="none" />
+        }
+        @case ('Document') {
+          <path class="card" d="M8 4h11l6 6v18H8z" />
+          <path d="M19 4v6h6" />
+          <path class="faint" d="M12 16h9M12 20h9M12 24h6" />
+        }
+        @case ('Audio') {
+          <rect x="4" y="5" width="24" height="22" rx="2.5" fill="#3d9970" stroke="none" />
+          <path d="M9 16v0M12 13v6M15 10v12M18 13v6M21 11v10M24 15v2" stroke="#fff" stroke-width="1.8" />
+        }
+        @case ('Map') {
+          <path class="card" d="M4 8l7-3 10 3 7-3v19l-7 3-10-3-7 3z" />
+          <path d="M11 5v19M21 8v19" class="faint" />
+          <circle cx="16" cy="14" r="2.6" fill="#e5533d" stroke="none" />
+        }
+        @case ('Video') {
+          <rect class="card" x="4" y="7" width="24" height="18" rx="2.5" />
+          <path d="M14 12.5v7l6-3.5z" fill="currentColor" />
+        }
+        @case ('Heading') {
+          <rect class="card" x="5" y="5" width="22" height="22" rx="2" />
+          <path d="M11 10h10M16 10v13" stroke-width="2.2" />
+        }
         @case ('Add image') {
           <rect x="5" y="6" width="22" height="20" rx="3" />
           <circle cx="20.5" cy="12.5" r="2.2" fill="currentColor" stroke="none" />

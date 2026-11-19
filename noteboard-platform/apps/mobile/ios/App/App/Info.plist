@@ -54,6 +54,8 @@
 	<!-- Privacy: why Noteboard asks (shown by iOS the first time). -->
 	<key>NSCameraUsageDescription</key>
 	<string>Noteboard uses the camera when you take a photo for a picture card.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Noteboard uses the microphone when you record a voice note for an audio card.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Noteboard opens your photos when you choose a picture to add to a board.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

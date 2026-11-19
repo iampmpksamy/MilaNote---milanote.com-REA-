@@ -118,6 +118,8 @@ export class BoardsPage {
   });
 
   constructor() {
+    // Comments are signed with the account's name (read by the workspace when it starts).
+    (globalThis as { nbAuthorName?: string }).nbAuthorName = this.server.me()?.name ?? 'You';
     // The session was ended elsewhere (found out when the connection came back): sign in again.
     // Unsent changes stay on this device and are merged after signing in to the same account.
     effect(() => {

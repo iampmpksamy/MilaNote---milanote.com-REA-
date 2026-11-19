@@ -267,7 +267,16 @@ export function cardText(s: Store, card: Card): string {
   if ('Link' in c) return `${c.Link.title}\n${c.Link.url}`;
   if ('Image' in c) return c.Image.caption;
   if ('Board' in c) return s.boards[String(c.Board.board)]?.name ?? '';
-  return c.Column.title;
+  if ('Column' in c) return c.Column.title;
+  if ('Heading' in c) return c.Heading.text;
+  if ('Color' in c) return `${c.Color.name}\n${c.Color.hex}`;
+  if ('Document' in c) return `${c.Document.title}\n${c.Document.text}`;
+  if ('Audio' in c) return c.Audio.title;
+  if ('Video' in c) return `${c.Video.title}\n${c.Video.url}`;
+  if ('Map' in c) return `${c.Map.label}\n${c.Map.query}`;
+  if ('Comment' in c) return c.Comment.entries.map((e) => e.text).join('\n');
+  if ('Table' in c) return [c.Table.title, ...c.Table.cells.map((r) => r.join(' '))].join('\n');
+  return '';
 }
 
 /** First line of text without markdown marks. */

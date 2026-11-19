@@ -4,7 +4,7 @@ import { workspaceRoot } from '@nx/devkit';
 
 // The tests run the production build in Microsoft Edge (installed with Windows), served by a tiny
 // static server that Playwright starts before the tests and stops afterwards.
-const port = 4321;
+const port = Number(process.env['NB_PORT'] ?? 4321);
 
 export default defineConfig({
   ...nxE2EPreset(import.meta.dirname, { testDir: './src' }),

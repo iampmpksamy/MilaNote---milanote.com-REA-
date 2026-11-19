@@ -58,6 +58,9 @@
     <!-- Taking a photo for a picture card (asked the first time the camera is chosen). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Recording a voice note for an audio card (asked the first time). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Short vibration when a long press opens a menu. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

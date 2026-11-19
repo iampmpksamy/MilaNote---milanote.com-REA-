@@ -33,6 +33,8 @@
         @for (t of tools; track $index) {
           @if (t === null) {
             <hr class="nb-tsep" />
+          } @else if (t === 'More') {
+            <button #more class="nb-tool" data-tool="More" [class.active]="ws.popup()?.kind === 'more'" title="More card types" (click)="popupFor('more', more, {})"><nb-icon name="More" /><span>More</span></button>
           } @else if (toolVisible(t)) {
             <button class="nb-tool" [attr.data-tool]="t" [class.disabled]="unavailable.includes(t)" [title]="unavailable.includes(t) ? 'Not available in this version yet' : t === 'Line' ? 'Click or drag to add a line, then drag its ends onto cards' : 'Click to add, or drag onto the board'"
               (pointerdown)="ctl.toolDown(t, $event)">
@@ -222,6 +224,13 @@
               <button class="nb-weight" (click)="ws.editArrow(p.arrow, $any(setWeightFn(w)))"><span [style.height.px]="w === 1 ? 1.6 : w === 2 ? 2.6 : 4"></span>{{ ['Thin', 'Medium', 'Thick'][w - 1] }}</button>
             }
           }
+        }
+        @case ('more') {
+          <div class="nb-more-grid" data-testid="more-tools">
+            @for (t of moreTools; track t) {
+              <button class="nb-more-tool" [attr.data-tool]="t" [title]="'Click to add, or drag onto the board'" (pointerdown)="ctl.toolDown(t, $event)"><nb-icon [name]="t" /><span>{{ t }}</span></button>
+            }
+          </div>
         }
         @case ('line-label') {
           <h4>Label</h4>

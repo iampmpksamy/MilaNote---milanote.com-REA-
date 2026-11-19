@@ -510,6 +510,7 @@ export class CanvasControl {
 
   /** Tools that open a file chooser are handled by the shell; the rest create cards straight away. */
   createTool(tool: Tool, place: Parameters<Workspace['create']>[1]): void {
+    if (this.ws.popup()?.kind === 'more') this.ws.popup.set(null);
     if (tool === 'Add image' || tool === 'Upload') {
       this.onPickFile?.(tool, place);
       return;

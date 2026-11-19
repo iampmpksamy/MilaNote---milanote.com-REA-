@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <!-- Native apps: the UI is bundled; only the chosen Noteboard server is contacted. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-src 'none'; form-action 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https: ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; form-action 'none'" />
     <title>Noteboard</title>
     <meta name="theme-color" content="#eaebee" />
     <base href="/" />

@@ -492,3 +492,10 @@ nb-icon .faint { stroke: var(--nb-muted); }
   .nb-toolbar { width: u(62px); height: auto; flex-direction: column; overflow-y: auto; overflow-x: hidden; border-top: 0; border-right: 1px solid var(--nb-divider); padding: 4px 0 4px env(safe-area-inset-left, 0px); touch-action: pan-y; }
   .nb-tool { width: calc(100% - 8px); height: u(52px); touch-action: pan-y; }
 }
+
+// ---------- "More" card types ----------
+.nb-more-grid { display: grid; grid-template-columns: repeat(3, 76px); gap: 4px; }
+.nb-more-tool { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: 6px; color: var(--nb-icon); touch-action: none;
+  nb-icon { width: 30px; height: 30px; } span { font-size: 11.5px; color: var(--nb-muted); }
+  &:hover { background: var(--nb-hover); } }
+@media (max-width: 640px) { .nb-more-grid { grid-template-columns: repeat(4, 1fr); } }
