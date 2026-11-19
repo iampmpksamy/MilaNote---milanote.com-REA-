@@ -9,12 +9,15 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { Arrow, Card, CardId, ago, findCard, getBoard, plainTitle, cardText, KIND_NAMES, kindOf } from '@noteboard/board-model';
 import { arrowHead, lineWidth, toWorld } from '@noteboard/canvas-geometry';
-import { CanvasControl } from './canvas';
+import { CanvasControl, DrawPen } from './canvas';
 import { CardView } from './card';
+import { SketchEditor } from './cards';
+import { SKETCH_COLORS, WIDTH_NAMES, inkPath } from './cards/sketch/sketch-geom';
 import { Icon } from './icon';
 import { BOARD_COLORS, BOARD_ICONS, CARD_COLORS, LINE_COLORS, SCALES } from './prefs';
 import { Settings } from './settings';
@@ -33,7 +36,7 @@ type Mode = { kind: 'default' } | { kind: 'card'; card: Card } | { kind: 'line';
   selector: 'nb-workspace',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CardView, Icon, Settings],
+  imports: [CardView, Icon, Settings, SketchEditor],
   providers: [Workspace],
   templateUrl: './workspace.html',
   host: {
@@ -140,6 +143,41 @@ export class WorkspaceView {
     const q = this.iconQuery().trim().toLowerCase();
     return BOARD_ICONS.filter(([, words]) => !q || words.includes(q));
   });
+  // ---------- sketches and draw mode ----------
+  readonly sketchColors = SKETCH_COLORS;
+  readonly widthNames = WIDTH_NAMES;
+  /** The sketch card being edited: its drawing editor is shown above everything. */
+  readonly sketchCard = computed(
+    () => {
+      const id = this.ws.editing();
+      const c = id !== null ? findCard(this.ws.board(), id) : undefined;
+      return c && 'Sketch' in c.content ? c : null;
+    },
+    { equal: (a, b) => a?.id === b?.id },
+  );
+  /** Strokes drawn in draw mode (board coordinates), with the one being drawn last. */
+  readonly drawPaths = computed(() => {
+    this.tick();
+    if (!this.ctl.drawing()) return [];
+    const dark = this.ws.dark();
+    const out = this.ctl.drawStrokes().map((s) => inkPath(s, dark, false));
+    const live = this.ctl.liveStroke();
+    if (live) out.push(inkPath(live, dark, false, false));
+    return out;
+  });
+
+  setPen(p: Partial<DrawPen>): void {
+    this.ctl.drawPen.update((old) => ({ ...old, ...p }));
+  }
+
+  toggleSketchPaper(c: Card): void {
+    this.ws.updateCard(c.id, (x) => 'Sketch' in x.content && (x.content.Sketch.background = !x.content.Sketch.background), true);
+  }
+
+  isSketchPaper(c: Card): boolean {
+    return 'Sketch' in c.content && c.content.Sketch.background;
+  }
+
   readonly menuCard = computed(() => {
     const m = this.ws.menu();
     return m && 'card' in m.target ? findCard(this.ws.board(), m.target.card) ?? null : null;
@@ -188,6 +226,11 @@ export class WorkspaceView {
       this.ws.centerOn.set(null);
     });
     effect(() => document.documentElement.classList.toggle('nb-dark', this.ws.dark()));
+    // Opening another board ends draw mode (the drawing stays on the board it was drawn on).
+    effect(() => {
+      this.ws.current();
+      untracked(() => this.ctl.endDraw());
+    });
     // Put the cursor in the search box when it opens.
     afterRenderEffect(() => {
       const input = this.searchInput()?.nativeElement;
@@ -213,6 +256,7 @@ export class WorkspaceView {
     if (ws.menu()) return void (ws.menu.set(null), done());
     if (ws.popup()) return void (ws.popup.set(null), done());
     if (ws.settingsOpen()) return void (ws.settingsOpen.set(false), done());
+    if (this.ctl.drawing()) return void (this.ctl.endDraw(), done());
     if (ws.showTrash()) return void (ws.showTrash.set(false), done());
     if (ws.editing() !== null) return void (ws.stopEditing(), done());
     if (ws.prefs().drawer_open && matchMedia('(max-width: 640px)').matches) return void (ws.setPrefs({ drawer_open: false }), done());

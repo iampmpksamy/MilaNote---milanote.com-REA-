@@ -1,5 +1,7 @@
 /** Pointer, wheel, keyboard and clipboard handling for the board canvas. */
-import { Arrow, Card, CardId, findCard } from '@noteboard/board-model';
+import { signal } from '@angular/core';
+import { Arrow, BoardId, Card, CardId, Stroke, findCard, getBoard, maxZ, newId } from '@noteboard/board-model';
+import { DEFAULT_INK, DRAW_WIDTHS, MARKER_SCALE, MAX_NUMBERS, MAX_STROKES, WidthIndex, countNumbers, pushPoint, strokesToCard } from './cards/sketch/sketch-geom';
 import { BOARD_ICON, Pt, Rect, align, contains, distToSegment, fromTwo, intersects, lineEnds, lineWidth, rect, toWorld, zoomAt } from '@noteboard/canvas-geometry';
 import { Tool, UNAVAILABLE, Workspace } from './workspace.service';
 
@@ -11,7 +13,15 @@ type Gesture =
   | { kind: 'connect'; from: CardId }
   | { kind: 'end'; arrow: number; end: 0 | 1 }
   | { kind: 'line'; arrow: number; last: Pt }
-  | { kind: 'tool'; tool: Tool; start: Pt; moved: boolean };
+  | { kind: 'tool'; tool: Tool; start: Pt; moved: boolean }
+  | { kind: 'draw'; pointer: number; stroke: Stroke };
+
+/** The pen used in the board's draw mode. */
+export interface DrawPen {
+  color: string;
+  width: WidthIndex;
+  marker: boolean;
+}
 
 const isField = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
@@ -36,6 +46,14 @@ export class CanvasControl {
   private lastTouchAt = 0;
   /** Called when a long press opens a menu (the apps vibrate briefly). */
   onLongPress?: () => void;
+
+  // ---------- draw mode ----------
+  /** Draw mode: dragging on the board draws; the strokes become one sketch card when it ends. */
+  readonly drawing = signal(false);
+  readonly drawPen = signal<DrawPen>({ color: DEFAULT_INK, width: 1, marker: false });
+  /** Strokes drawn in this draw session, in board coordinates. */
+  readonly drawStrokes = signal<Stroke[]>([]);
+  private drawBoard: BoardId | null = null;
 
   constructor(
     private readonly ws: Workspace,
@@ -262,10 +280,118 @@ export class CanvasControl {
     if (this.gesture) this.up(e);
   }
 
+  // ---------- draw mode ----------
+  //
+  // One finger, the mouse or a pen draws (on empty space and over cards alike, which are never
+  // selected or moved); two fingers, the wheel, the middle button and Space+drag still move the board.
+
+  startDraw(): void {
+    const ws = this.ws;
+    ws.stopEditing();
+    ws.clearSelection();
+    ws.menu.set(null);
+    ws.popup.set(null);
+    this.drawStrokes.set([]);
+    this.drawBoard = ws.current();
+    this.drawing.set(true);
+  }
+
+  /** Ends draw mode: everything drawn becomes one see-through sketch card (one undo step). */
+  endDraw(): void {
+    if (!this.drawing()) return;
+    if (this.gesture?.kind === 'draw') {
+      this.drawStrokes.update((s) => [...s, (this.gesture as Extract<Gesture, { kind: 'draw' }>).stroke]);
+      this.gesture = null;
+    }
+    this.drawing.set(false);
+    const placed = strokesToCard(this.drawStrokes());
+    this.drawStrokes.set([]);
+    const bid = this.drawBoard ?? this.ws.current();
+    this.drawBoard = null;
+    this.redraw();
+    if (!placed || !this.ws.store().boards[String(bid)]) return;
+    let id = 0;
+    this.ws.change((s) => {
+      const b = getBoard(s, bid);
+      id = newId(s);
+      b.cards.push({
+        id,
+        pos: placed.pos,
+        width: placed.width,
+        color: 0,
+        z: maxZ(b) + 1,
+        container: 'Canvas',
+        locked: false,
+        align: 0,
+        content: { Sketch: { strokes: placed.strokes, aspect: placed.aspect, background: false } },
+      });
+    });
+    if (this.ws.current() === bid) this.ws.select(id);
+  }
+
+  toggleDraw(): void {
+    if (this.drawing()) this.endDraw();
+    else this.startDraw();
+  }
+
+  undoStroke(): void {
+    this.drawStrokes.update((s) => s.slice(0, -1));
+    this.redraw();
+  }
+
+  /** The stroke being drawn on the board, if any. */
+  liveStroke(): Stroke | null {
+    return this.gesture?.kind === 'draw' ? this.gesture.stroke : null;
+  }
+
+  private drawNumbers(): number {
+    return countNumbers(this.drawStrokes());
+  }
+
+  /** A pointer going down in draw mode; false when the normal code should handle it (board pan, floating buttons). */
+  private drawDown(e: PointerEvent): boolean {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.nb-canvas') || target.closest('.nb-float')) return false;
+    this.ws.menu.set(null);
+    this.ws.popup.set(null);
+    if (e.pointerType === 'touch') {
+      this.lastTouchAt = Date.now();
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.cancelLong();
+      if (this.touches.size >= 2) {
+        // A second finger: pinch and move the board; the stroke the first finger began is dropped.
+        this.gesture = null;
+        const [a, b] = [...this.touches.values()];
+        this.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: this.local({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }) };
+        this.redraw();
+        return true;
+      }
+      this.pinch = null;
+      this.longFired = false;
+    } else {
+      if (e.button === 1 || (e.button === 0 && this.space)) return false;
+      if (e.button !== 0) return true;
+    }
+    if (this.drawStrokes().length >= MAX_STROKES || this.drawNumbers() >= MAX_NUMBERS - 2) {
+      this.ws.showToast('That is as much as one drawing can hold: press Done to keep it');
+      return true;
+    }
+    e.preventDefault();
+    const pen = this.drawPen();
+    const p = this.world(e);
+    const stroke: Stroke = { color: pen.color, width: (DRAW_WIDTHS[pen.width] * (pen.marker ? MARKER_SCALE : 1)) / this.ws.view().zoom, points: [] };
+    if (pen.marker) stroke.marker = true;
+    pushPoint(stroke.points, p.x, p.y, 0);
+    this.gesture = { kind: 'draw', pointer: e.pointerId, stroke };
+    this.redraw();
+    return true;
+  }
+
   // ---------- pointer ----------
 
   down(e: PointerEvent): void {
     this.pointer = this.local(e);
+    if (this.drawing() && this.drawDown(e)) return;
     if (e.pointerType === 'touch' && this.touchDown(e)) return;
     const target = e.target as HTMLElement;
     this.ws.menu.set(null);
@@ -326,6 +452,7 @@ export class CanvasControl {
 
   toolDown(tool: Tool, e: PointerEvent): void {
     if (e.button !== 0) return;
+    if (this.drawing()) this.endDraw();
     this.gesture = { kind: 'tool', tool, start: { x: e.clientX, y: e.clientY }, moved: false };
   }
 
@@ -412,6 +539,17 @@ export class CanvasControl {
         g.last = w;
         break;
       }
+      case 'draw': {
+        if (e.pointerId !== g.pointer) return;
+        const min = 1.2 / this.ws.view().zoom;
+        const coalesced = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
+        for (const ev of coalesced.length ? coalesced : [e]) {
+          if (this.drawNumbers() + g.stroke.points.length + 2 > MAX_NUMBERS) break;
+          const p = this.world(ev);
+          pushPoint(g.stroke.points, p.x, p.y, min);
+        }
+        break;
+      }
       case 'tool': {
         if (!g.moved && Math.hypot(e.clientX - g.start.x, e.clientY - g.start.y) < 4) return;
         g.moved = true;
@@ -456,10 +594,15 @@ export class CanvasControl {
       return;
     }
     const g = this.gesture;
+    if (g?.kind === 'draw' && e.pointerId !== g.pointer) return;
     this.gesture = null;
     if (!g) return;
     const w = this.world(e);
     switch (g.kind) {
+      case 'draw':
+        if (e.type === 'pointerup') pushPoint(g.stroke.points, w.x, w.y, 0.3 / this.ws.view().zoom);
+        this.drawStrokes.update((s) => [...s, g.stroke]);
+        break;
       case 'card':
         if (!g.moved) {
           this.ws.select(g.id, e.shiftKey || e.ctrlKey || e.metaKey);
@@ -525,7 +668,7 @@ export class CanvasControl {
   onPickFile?: (tool: Tool, place: Parameters<Workspace['create']>[1]) => void;
 
   dblclick(e: MouseEvent): void {
-    if (this.recentTouch(e)) return;
+    if (this.recentTouch(e) || this.drawing()) return;
     const target = e.target as HTMLElement;
     if (target.closest('[data-handle], .nb-float')) return;
     const cardEl = target.closest<HTMLElement>('nb-card-view');
@@ -546,7 +689,7 @@ export class CanvasControl {
   contextmenu(e: MouseEvent): void {
     const target = e.target as HTMLElement;
     if (isField(target)) return;
-    if (this.recentTouch(e)) {
+    if (this.recentTouch(e) || (this.drawing() && target.closest('.nb-canvas'))) {
       e.preventDefault();
       return;
     }
@@ -588,6 +731,7 @@ export class CanvasControl {
     if (e.type !== 'keydown') return;
     if (e.key === 'Escape') {
       if (ws.settingsOpen()) ws.settingsOpen.set(false);
+      else if (this.drawing()) this.endDraw();
       else if (ws.editing() !== null) ws.stopEditing();
       else if (ws.menu()) ws.menu.set(null);
       else if (ws.popup()) ws.popup.set(null);
@@ -612,6 +756,12 @@ export class CanvasControl {
       return;
     }
     if (field || ws.settingsOpen()) return;
+    // Ctrl+Z while drawing takes back the last stroke of this session.
+    if (this.drawing() && cmd && e.code === 'KeyZ' && !e.shiftKey && this.drawStrokes().length) {
+      e.preventDefault();
+      this.undoStroke();
+      return;
+    }
     const size = this.canvasSize();
     const center = { x: size.x / 2, y: size.y / 2 };
     switch (true) {
