@@ -13,7 +13,7 @@ export class WorkspaceRoutes {
   async get(@Req() req: NbRequest) {
     const { user } = needUser(req);
     const ws = await this.ctx.workspaces.forUser(user._id);
-    return { rev: ws.rev, store: await this.ctx.workspaces.load(ws), prefs: ws.prefs, updatedAt: ws.updatedAt };
+    return { rev: ws.rev, store: await this.ctx.workspaces.load(ws), prefs: ws.prefs, updatedAt: ws.updatedAt, recentOps: ws.recentOps ?? [] };
   }
 
   @Put('workspace')

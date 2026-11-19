@@ -61,6 +61,9 @@ export async function startNativeShell(): Promise<void> {
       else void App.minimizeApp();
     });
 
+    // Back in the foreground: fetch other devices' changes and send ours.
+    await App.addListener('resume', () => window.dispatchEvent(new Event('nb-resume')));
+
     // Status bar follows the light/dark theme.
     const paint = () => {
       const dark = document.documentElement.classList.contains('nb-dark');

@@ -109,6 +109,7 @@ export class Workspaces {
               lastOp: opId ? { id: opId, rev: expectedRev + 1 } : null,
             },
             $inc: { rev: 1 },
+            ...(opId ? { $push: { recentOps: { $each: [opId], $slice: -20 } } } : {}),
           },
           { session, returnDocument: 'after' },
         );

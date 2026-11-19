@@ -2,11 +2,12 @@
  * The boards: the shared workspace, saving to the server account (server mode and the native apps)
  * or to this browser (local mode, when the page is served without a Noteboard server).
  */
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { IndexedDbStorage, MemoryStorage, STORAGE, type StorageAdapter, WorkspaceView } from '@noteboard/ui-workspace';
 import { openExternal, saveFile } from './native/platform';
-import { ServerApi, ServerStorage } from './server/api';
+import { ServerApi } from './server/api';
+import { ServerStorage } from './server/sync-storage';
 
 function storageFor(server: ServerApi): StorageAdapter {
   if (server.mode() === 'server') return new ServerStorage(server.discovery()?.appName ?? 'Noteboard', server.draftKey());
@@ -37,8 +38,11 @@ function storageFor(server: ServerApi): StorageAdapter {
           @if (conflict()) {
             <button class="nb-btn small" (click)="reload()">Reload</button>
           }
-          @if (saveState() === 'retrying') {
+          @if (offline() && dirty()) {
             <button class="nb-btn small" (click)="retry()">Try now</button>
+          }
+          @if (mergeNote()) {
+            <button class="nb-btn small" data-testid="merge-ok" (click)="remote?.mergeNote?.set('')">OK</button>
           }
           @if (stranded()) {
             <button class="nb-btn small" data-testid="draft-save" (click)="exportDraft()">Save my unsent changes as a file</button>
@@ -82,10 +86,13 @@ export class BoardsPage {
   readonly server = inject(ServerApi);
   private readonly router = inject(Router);
   private readonly storage = inject(STORAGE);
-  private readonly remote = this.storage instanceof ServerStorage ? this.storage : null;
+  readonly remote = this.storage instanceof ServerStorage ? this.storage : null;
   readonly menu = signal(false);
   readonly conflict = computed(() => this.remote?.conflict() ?? false);
   readonly saveState = computed(() => this.remote?.state() ?? 'saved');
+  readonly offline = computed(() => this.remote?.offline() ?? false);
+  readonly dirty = computed(() => this.remote?.dirty() ?? false);
+  readonly mergeNote = computed(() => this.remote?.mergeNote() ?? '');
   readonly stranded = computed(() => this.remote?.strandedDraft() ?? null);
   readonly loadError = computed(() => this.remote?.loadError() ?? '');
   readonly initials = computed(() =>
@@ -101,12 +108,22 @@ export class BoardsPage {
     if (this.stranded() && !this.conflict())
       return 'Changes made on this device earlier could not be sent because your boards were changed somewhere else since. They are kept on this device.';
     if (this.conflict()) return 'Your boards were changed in another window or on another device. Reload to get the latest version before changing more. Your last change is kept on this device.';
-    if (this.saveState() === 'retrying') return "Can't reach the server. Your changes are kept on this device and will be sent when it answers again.";
-    if (this.saveState() === 'failed') return 'The server refused the last change. It is kept on this device; reload to continue.';
+    if (this.saveState() === 'error') return `Your latest changes are kept on this device but were not saved to the server: ${this.remote?.lastError() || 'the server refused them'}.`;
+    if (this.offline() && this.dirty()) return "You're offline. Your changes are saved on this device and will be sent when the connection is back.";
+    if (this.offline()) return "You're offline. You can keep working; changes are saved on this device.";
+    if (this.mergeNote()) return this.mergeNote();
     const m = this.server.discovery()?.maintenance;
     if (m && this.server.me()?.role === 'user') return m.message || 'The server is in maintenance; saving is paused for a moment.';
     return '';
   });
+
+  constructor() {
+    // The session was ended elsewhere (found out when the connection came back): sign in again.
+    // Unsent changes stay on this device and are merged after signing in to the same account.
+    effect(() => {
+      if (this.server.mode() === 'server' && !this.server.me()) void this.router.navigateByUrl('/login');
+    });
+  }
 
   reload() {
     location.reload();
@@ -133,6 +150,8 @@ export class BoardsPage {
   }
 
   async signOut() {
+    if (this.remote && (await this.remote.hasUnsynced()) && !confirm('Some changes on this device have not reached the server yet (no connection). Signing out deletes them from this device. Sign out anyway?')) return;
+    await this.remote?.forget();
     await this.server.logout();
     await this.router.navigateByUrl('/login');
   }

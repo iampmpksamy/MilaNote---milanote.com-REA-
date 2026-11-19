@@ -9,6 +9,7 @@ export interface SavedAccount {
   key: string;
   email: string;
   name: string;
+  role?: 'super_admin' | 'admin' | 'user';
 }
 
 export interface SavedServer {
@@ -20,6 +21,8 @@ export interface SavedServer {
   accounts: SavedAccount[];
   activeAccount: string | null;
   lastUsed: number;
+  /** What the server said about itself last time (used to open the boards without a connection). */
+  info?: ServerInfo;
 }
 
 export interface Registry {
@@ -141,7 +144,7 @@ export function upsertServer(r: Registry, url: string, info: ServerInfo): SavedS
     s = { id, url, appName: info.appName, serverVersion: info.serverVersion, publicUrl: info.publicUrl, accounts: [], activeAccount: null, lastUsed: Date.now() };
     r.servers.push(s);
   }
-  Object.assign(s, { url, appName: info.appName, serverVersion: info.serverVersion, publicUrl: info.publicUrl, lastUsed: Date.now() });
+  Object.assign(s, { url, appName: info.appName, serverVersion: info.serverVersion, publicUrl: info.publicUrl, lastUsed: Date.now(), info });
   r.current = id;
   return s;
 }

@@ -4,7 +4,7 @@ The cross-platform successor to the Noteboard desktop app (the Rust/egui app one
 unchanged and tagged `v2-rust-baseline` in Git). One Angular workspace, shared by every client, and
 now a self-hosted server.
 
-**Status: 3.0.0-alpha.4 — Homelab Edition + native apps (part 1).** The web app runs in two modes:
+**Status: 3.0.0-alpha.5 — Homelab Edition + native apps with offline editing.** The web app runs in two modes:
 
 - **Server mode** (Homelab Edition): served by the `noteboard-gateway` image in front of the NestJS
   API, with accounts, private boards saved to MongoDB, pictures on the NAS, `/admin`, backups and an
@@ -16,7 +16,7 @@ Native apps (3.0.0-alpha.4): Android (Capacitor, debug APK built), Windows (Taur
 on Windows/CI) and iPhone/iPad (Capacitor, needs macOS) share the same bundled UI and connect to the
 server you choose — [docs/ANDROID_BUILD_GUIDE.md](docs/ANDROID_BUILD_GUIDE.md),
 [docs/WINDOWS_BUILD_GUIDE.md](docs/WINDOWS_BUILD_GUIDE.md), [docs/IOS_BUILD_GUIDE.md](docs/IOS_BUILD_GUIDE.md).
-Offline editing and real-time collaboration are designed, not built ([docs/OFFLINE_SYNC.md](docs/OFFLINE_SYNC.md)). Test evidence: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+Offline editing and sync between devices: [docs/OFFLINE_SYNC.md](docs/OFFLINE_SYNC.md); real-time collaboration is not built. Test evidence: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## Layout
 

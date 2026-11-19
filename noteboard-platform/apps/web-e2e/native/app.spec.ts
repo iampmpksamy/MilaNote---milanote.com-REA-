@@ -13,7 +13,7 @@ const shots = join(root, '..', 'shots', 'native-alpha4');
 mkdirSync(shots, { recursive: true });
 const SERVER = 'http://127.0.0.1:4324';
 const PW = 'correct horse battery 42';
-const S: { invite?: string; secret?: string } = {};
+const S: { invite?: string; secret?: string; phoneCtx?: BrowserContext; laptopCtx?: BrowserContext } = {};
 
 // ---------- server preparation (as the administrator, through the browser API) ----------
 
@@ -269,7 +269,7 @@ test('a broken connection: changes are kept and sent when the server answers aga
   await expect(page.locator('textarea.nb-note-edit')).toBeFocused();
   await page.keyboard.type('Typed while offline');
   await page.evaluate(() => window.dispatchEvent(new Event('nb-back', { cancelable: true })));
-  await expect(page.getByTestId('banner')).toContainText("Can't reach the server", { timeout: 15_000 });
+  await expect(page.getByTestId('banner')).toContainText("You're offline", { timeout: 15_000 });
   await page.screenshot({ path: join(shots, 'android-offline-banner.png') });
   await page.unroute('**/api/v1/workspace');
   await page.getByRole('button', { name: 'Try now' }).click();
@@ -310,6 +310,130 @@ test('switching servers: a second server is remembered separately; an unavailabl
   await loaded(page);
   await page.screenshot({ path: join(shots, 'android-switch.png') });
   await ctx.close();
+});
+
+// ---------- offline editing ----------
+
+/** The server stops answering (the app's own files stay available, as they are bundled on a phone). */
+const serverDown = (p: Page) => p.route(`${SERVER}/**`, (r) => r.abort('internetdisconnected'));
+const serverUp = (p: Page) => p.unroute(`${SERVER}/**`);
+
+async function browserSignIn(browser: Parameters<Parameters<typeof test>[1]>[0]['browser']) {
+  const c = await browser.newContext();
+  const p = await c.newPage();
+  await p.goto(`${SERVER}/login`);
+  await p.getByTestId('login-email').fill('bob@example.com');
+  await p.getByTestId('login-password').fill(PW);
+  await p.getByTestId('login-submit').click();
+  await loaded(p);
+  return { c, p };
+}
+
+/** Opens Unsorted (already open after an earlier test, or the pill hidden by a banner on a phone). */
+async function openUnsorted(p: Page) {
+  if (!(await p.locator('.nb-drawer').isVisible())) await p.getByTestId('unsorted-pill').dispatchEvent('click');
+  await expect(p.locator('.nb-drawer')).toBeVisible();
+}
+
+async function newNote(p: Page, text: string, viaTouch = true) {
+  if (viaTouch) await tap(await touch(p), await centre(p, '[data-tool="Note"]'));
+  else await p.locator('[data-tool="Note"]').click();
+  await expect(p.locator('textarea.nb-note-edit')).toBeFocused();
+  await p.keyboard.type(text);
+  if (viaTouch) await p.evaluate(() => window.dispatchEvent(new Event('nb-back', { cancelable: true })));
+  else await p.keyboard.press('Escape');
+}
+
+test('offline: the app opens without the server, edits and a picture are kept, merged with another device later', async ({ browser }) => {
+  const phoneCtx = await browser.newContext({ ...devices['Pixel 7'] });
+  const phone = await openApp(phoneCtx);
+  await connect(phone);
+  await phone.getByTestId('login-email').fill('bob@example.com');
+  await phone.getByTestId('login-password').fill(PW);
+  await phone.getByTestId('login-submit').click();
+  await loaded(phone);
+  await expect(phone.getByTestId('save-status')).toHaveText('Saved to server', { timeout: 10_000 });
+
+  // The server goes away; the app is closed and opened again.
+  await serverDown(phone);
+  await phone.reload();
+  await loaded(phone);
+  await expect(phone.getByTestId('banner')).toContainText("You're offline");
+  await newNote(phone, 'Made offline on the phone');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP8z8DAwMDAxMDAAAAeAQIBnCzk7wAAAABJRU5ErkJggg==', 'base64');
+  await phone.locator('input[type=file]').first().setInputFiles({ name: 'offline.png', mimeType: 'image/png', buffer: png });
+  await expect(phone.locator('nb-card-view img').last()).toBeVisible();
+  await expect(phone.getByTestId('save-status')).toHaveText('Saved on this device', { timeout: 10_000 });
+  await phone.screenshot({ path: join(shots, 'android-offline-editing.png') });
+  // Still offline after another restart: the offline changes are there.
+  await phone.reload();
+  await loaded(phone);
+  await expect(phone.locator('nb-card-view', { hasText: 'Made offline on the phone' })).toBeVisible();
+
+  // Meanwhile on the laptop (browser), online.
+  const laptop = await browserSignIn(browser);
+  await newNote(laptop.p, 'Made on the laptop meanwhile', false);
+  await expect(laptop.p.getByTestId('save-status')).toHaveText('Saved to server', { timeout: 10_000 });
+
+  // The connection comes back: both sides end up with everything.
+  await serverUp(phone);
+  await phone.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(phone.getByTestId('save-status')).toHaveText('Saved to server', { timeout: 20_000 });
+  await expect(phone.locator('nb-card-view', { hasText: 'Made on the laptop meanwhile' })).toBeVisible({ timeout: 10_000 });
+  await expect(phone.locator('nb-card-view', { hasText: 'Made offline on the phone' })).toBeVisible();
+  await laptop.p.reload();
+  await loaded(laptop.p);
+  await expect(laptop.p.locator('nb-card-view', { hasText: 'Made offline on the phone' })).toBeVisible();
+  await expect(laptop.p.locator('nb-card-view', { hasText: 'Made on the laptop meanwhile' })).toBeVisible();
+  // The offline picture was uploaded and shows on the laptop.
+  const imgs = laptop.p.locator('nb-card-view img');
+  await expect.poll(async () => {
+    for (const i of await imgs.all()) if ((await i.evaluate((x: HTMLImageElement) => x.naturalWidth)) === 8) return true;
+    return false;
+  }).toBe(true);
+  S.phoneCtx = phoneCtx;
+  S.laptopCtx = laptop.c;
+});
+
+test('offline: the same note changed on both devices keeps both texts (conflicting copy in Unsorted)', async () => {
+  const phone = S.phoneCtx!.pages()[0];
+  const laptop = S.laptopCtx!.pages()[0];
+  await serverDown(phone);
+  // (Touch gestures have their own test; here only the merge matters.)
+  const edit = async (p: Page, text: string) => {
+    // Notes made on two devices may overlap: double-click a point where this note is on top.
+    const pt = await p.locator('nb-card-view', { hasText: 'Made on the laptop meanwhile' }).first().evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      for (let y = r.top + 4; y < r.bottom; y += 6)
+        for (let x = r.left + 4; x < r.right; x += 6) if (document.elementFromPoint(x, y)?.closest('nb-card-view') === el) return { x, y };
+      return null;
+    });
+    expect(pt, 'some part of the note is visible').not.toBeNull();
+    await p.mouse.dblclick(pt!.x, pt!.y);
+    await expect(p.locator('textarea.nb-note-edit')).toBeFocused();
+    await p.keyboard.press('ControlOrMeta+a');
+    await p.keyboard.type(text);
+    await p.keyboard.press('Escape');
+  };
+  await edit(phone, 'Made on the laptop meanwhile — phone wording');
+  await expect(phone.getByTestId('save-status')).toHaveText('Saved on this device', { timeout: 10_000 });
+  await edit(laptop, 'Made on the laptop meanwhile — laptop wording');
+  await expect(laptop.getByTestId('save-status')).toHaveText('Saved to server', { timeout: 10_000 });
+  await serverUp(phone);
+  await phone.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(phone.getByTestId('save-status')).toHaveText('Saved to server', { timeout: 20_000 });
+  await expect(phone.getByTestId('banner')).toContainText('Conflicting copy', { timeout: 10_000 });
+  await expect(phone.locator('nb-card-view', { hasText: 'laptop wording' })).toBeVisible();
+  await openUnsorted(phone);
+  await expect(phone.locator('.nb-drawer nb-card-view', { hasText: 'phone wording' })).toBeVisible();
+  await phone.waitForTimeout(400); // let the sheet finish sliding in
+  await phone.screenshot({ path: join(shots, 'android-conflict-copy.png') });
+  await laptop.reload();
+  await loaded(laptop);
+  await openUnsorted(laptop);
+  await expect(laptop.locator('.nb-drawer nb-card-view', { hasText: 'phone wording' })).toBeVisible();
+  await S.phoneCtx!.close();
+  await S.laptopCtx!.close();
 });
 
 test('the connect screen is readable in dark mode', async ({ browser }) => {

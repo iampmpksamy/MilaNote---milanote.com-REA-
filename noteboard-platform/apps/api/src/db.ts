@@ -78,6 +78,8 @@ export interface WorkspaceDoc {
   usage: { boards: number; cards: number; arrows: number; assets: number; assetBytes: number };
   /** The last save's client operation id and the revision it produced, so a retried save is acknowledged instead of refused. */
   lastOp?: { id: string; rev: number } | null;
+  /** The last 20 saves' operation ids: a device whose answer was lost can see that its save arrived. */
+  recentOps?: string[];
   createdAt: Date;
   updatedAt: Date;
 }

@@ -220,4 +220,16 @@ describe('saving from a flaky connection', () => {
     const stale = await bob.put('/api/v1/workspace', { rev, store: sampleStore('stale'), opId: 'op-other-0002' });
     assert.equal(stale.status, 409);
   });
+
+  it('lists recent save ids, so a device can tell its lost save arrived', async () => {
+    const bob = s.bob;
+    const ws = await bob.get('/api/v1/workspace');
+    assert.ok(ws.data.recentOps.includes('op-retry-0001'), JSON.stringify(ws.data.recentOps));
+    assert.ok(!ws.data.recentOps.includes('op-other-0002'), 'refused saves are not listed');
+    let rev = ws.data.rev;
+    for (let i = 0; i < 22; i++) rev = (await bob.put('/api/v1/workspace', { rev, store: sampleStore(`n${i}`), opId: `op-many-${String(i).padStart(4, '0')}` })).data.rev;
+    const after = (await bob.get('/api/v1/workspace')).data.recentOps;
+    assert.equal(after.length, 20, 'only the last 20 are kept');
+    assert.equal(after.at(-1), 'op-many-0021');
+  });
 });

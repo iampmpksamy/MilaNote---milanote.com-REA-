@@ -158,6 +158,7 @@ export class Workspace {
       // Never replace someone's server boards with the sample boards.
       if (this.storage.remote) this.loadFailed.set(true);
     }
+    this.storage.onExternalChange?.((store) => this.replaceStore(store));
     this.data = loaded.store ?? sampleStore();
     if (migrate(this.data)) this.dirty.set(true);
     this.prefs.set({ ...DEFAULT_PREFS, ...(loaded.prefs ?? {}) });
@@ -198,6 +199,36 @@ export class Workspace {
     } catch {
       this.saveError.set(true);
     }
+  }
+
+  /**
+   * Takes a newer version of the boards (merged with another device or saved offline elsewhere).
+   * Keeps the open board, drops undo history (it would undo the other device's changes) and any
+   * selection that no longer exists. Refused while a card is being edited.
+   */
+  replaceStore(store: Store): boolean {
+    if (this.editing() !== null || !this.loaded()) return false;
+    const cur = this.current();
+    this.data = structuredClone(store) as StoreWithImports;
+    migrate(this.data);
+    if (!this.data.boards[String(cur)]) this.current.set(this.data.root);
+    const b = getBoard(this.data, this.current());
+    this.selected.set(new Set([...this.selected()].filter((id) => !!findCard(b, id))));
+    if (this.selectedArrow() !== null && !b.arrows.some((a) => a.id === this.selectedArrow())) this.selectedArrow.set(null);
+    this.undoStack = [];
+    this.redoStack = [];
+    this.canUndo.set(false);
+    this.canRedo.set(false);
+    this.rev.update((r) => r + 1);
+    void this.refreshImages();
+    return true;
+  }
+
+  /** Header status: the storage's own when it syncs, otherwise saved / saving / error. */
+  get syncStatus(): 'saved' | 'saving' | 'offline' | 'error' {
+    if (this.saveError()) return 'error';
+    if (this.dirty()) return 'saving';
+    return this.storage.syncStatus?.() ?? 'saved';
   }
 
   get storageLabel(): string {
@@ -451,7 +482,10 @@ export class Workspace {
       return;
     }
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-    const name = `${newId(this.data)}.${ext}`;
+    // A random part keeps names unique across devices adding pictures offline at the same time
+    // (ids alone can repeat until the boards are merged, and the file would overwrite the other).
+    const rnd = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, '0')).join('');
+    const name = `${newId(this.data)}-${rnd}.${ext.replace(/[^a-z0-9]/g, '').slice(0, 5) || 'png'}`;
     try {
       await this.storage.putImage(name, file);
     } catch (e) {

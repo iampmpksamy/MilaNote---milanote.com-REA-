@@ -12,7 +12,7 @@ exists, no automated test · **Designed** docs only · **Deferred**.
 | 0 Audit and preservation | Done (MIGRATION_PLAN.md) |
 | 1 Monorepo, shared canvas, web interface | **Done** (3.0.0-alpha.1) |
 | 2+3 Homelab Edition: NestJS, MongoDB, Redis, accounts, admin, Docker, CasaOS, PWA | **Done** (3.0.0-alpha.2) — see below and [HOMELAB_EDITION.md](HOMELAB_EDITION.md) |
-| 4 Windows (Tauri), Android/iOS (Capacitor), sync | **In progress** (3.0.0-alpha.4): native sign-in, server choice, reliable saving, touch UI, Android debug APK built; Windows app compiles (installers need Windows); iOS project prepared (needs macOS); offline editing is the next step — see below |
+| 4 Windows (Tauri), Android/iOS (Capacitor), sync | **In progress** — 3.0.0-alpha.5: **offline editing and sync** (OFFLINE_SYNC.md). 3.0.0-alpha.4: native sign-in, server choice, reliable saving, touch UI, Android debug APK built; Windows app compiles (installers need Windows); iOS project prepared (needs macOS); offline editing is the next step — see below |
 | 5 Reliability, security hardening, release | Not started |
 
 ## Homelab Edition (3.0.0-alpha.2) — tests run on 2026-11-19
@@ -61,6 +61,32 @@ all services came back healthy (setup still waiting for the owner).
 
 Not done / needs your access: the Cloudflare hostname; a host reboot test; the CasaOS dashboard view;
 S3 against a real bucket; ARM64.
+
+## Offline editing (3.0.0-alpha.5) — built and tested on the home lab, 2026-11-20
+
+Design and rules: [OFFLINE_SYNC.md](OFFLINE_SYNC.md). Three-way merge in the shared model package,
+device copy in IndexedDB, sync loop with retries, offline start in the apps, recent save ids on the
+server (no schema change).
+
+| Suite | Result |
+| --- | --- |
+| Model + merge (Vitest): model 13, merge 22, adversarial merge 69 | **104 / 104** |
+| Other unit suites (geometry 8, workspace 8, web 3, api 17) | 36 / 36 |
+| API integration | **37 / 37** (recent save ids added) |
+| Browser, local mode / server mode | 13 / 13, 6 / 6 (the browser now syncs through the same layer) |
+| Native app bundle (mobile emulation) | **13 / 13**, incl. 2 offline end-to-end tests |
+| Lint (7 projects) | 0 errors |
+
+Adversarial review: five independent reviewers (ids, data loss, deletion, invariants/server check,
+convergence/performance) wrote failing tests against the first merge version; each claimed defect
+was re-run and judged by a separate skeptic: 38 confirmed (e.g. two devices' free lines or "New
+Board"s fused into one, a board pulled into the trash and lost on emptying, trash restore broken by
+repairs, lost names on concurrent renames, a stack overflow on 150 000 cards), 2 rejected. All 38 are
+fixed; their tests are kept. Found while testing the app: picture file names could collide across
+devices (an upload would overwrite the other device's picture) — fixed with a random part; a session
+opened offline looked "signed out" on reconnect — fixed.
+
+Not verified: a physical phone in airplane mode; Windows/iOS builds of this version.
 
 ## Native apps (3.0.0-alpha.4) — built and tested on the home lab, 2026-11-19
 
@@ -208,8 +234,8 @@ those parts don't exist yet. Browser tests ran in Edge only (Firefox/Safari not 
 5. Unused template dependencies (`@angular/ssr`, `express`, `@angular/platform-server`) are still in
    package.json; to be removed when the API is added.
 6. Rust V2: Linux-only `quick-xml` advisory (see MIGRATION_PLAN.md).
-7. Native apps (alpha.4): no offline editing yet — the server must be reachable to open boards;
-   unsent changes are kept and retried (OFFLINE_SYNC.md).
+7. Offline editing (alpha.5): the browser still needs the server to open the page; the apps can't
+   sign in for the first time offline; see the limits in OFFLINE_SYNC.md.
 8. Native apps need a server on 3.0.0-alpha.4 or newer (native sign-in).
 9. The sample board for new accounts still says "Double-click", "Ctrl + scroll" (desktop wording)
    on phones too.
@@ -221,6 +247,10 @@ those parts don't exist yet. Browser tests ran in Edge only (Firefox/Safari not 
 13. The Admin panel opens in the system browser from the apps.
 
 ## Changelog
+
+### Platform 3.0.0-alpha.5 (2026-11-20) — offline editing
+- Device copy per server+account, three-way merge with conflicting copies, offline start in the apps,
+  pictures queued and cached, recent save ids on the server; adversarially tested merge.
 
 ### Platform 3.0.0-alpha.4 (2026-11-19) — native apps, part 1
 - Native sign-in for apps (bearer tokens, rotation, reuse detection, CORS for app origins only);

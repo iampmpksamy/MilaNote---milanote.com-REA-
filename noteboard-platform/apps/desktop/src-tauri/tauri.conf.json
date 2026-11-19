@@ -45,7 +45,7 @@
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper" },
       "nsis": { "installMode": "currentUser", "displayLanguageSelector": false },
-      "wix": { "version": "3.0.0.4" }
+      "wix": { "version": "3.0.0.5" }
     }
   }
 }

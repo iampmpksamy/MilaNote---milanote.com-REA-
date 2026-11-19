@@ -17,6 +17,14 @@ export interface StorageAdapter {
   /** An address the page can show, or null when the picture isn't stored here. */
   imageUrl(name: string): Promise<string | null>;
   listImages(): Promise<string[]>;
+  /**
+   * Server storage that syncs (offline editing, other devices): the workspace registers a handler
+   * that takes a newer version of the boards. It returns false when it can't take it right now
+   * (a card is being edited); the storage offers it again later.
+   */
+  onExternalChange?(handler: (store: Store) => boolean): void;
+  /** Where the latest changes are, for the status in the header. */
+  syncStatus?(): 'saved' | 'saving' | 'offline' | 'error';
 }
 
 export const STORAGE = new InjectionToken<StorageAdapter>('noteboard storage');

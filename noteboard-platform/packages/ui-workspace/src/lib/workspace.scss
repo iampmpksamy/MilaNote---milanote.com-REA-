@@ -112,7 +112,7 @@
 .nb-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .nb-crumb { color: var(--nb-muted); padding: 2px 4px; border-radius: 4px; white-space: nowrap; &:hover { background: var(--nb-hover); } &.current { color: var(--nb-text); font-weight: 600; } }
 .nb-sep { color: var(--nb-faint); }
-.nb-status { color: var(--nb-muted); font-size: u(12px); margin-right: u(10px); &.error { color: var(--nb-danger); } }
+.nb-status { color: var(--nb-muted); font-size: u(12px); margin-right: u(10px); &.error { color: var(--nb-danger); } &.offline { color: #b07a00; } }
 .nb-iconbtn {
   width: u(34px);
   height: u(34px);
@@ -425,7 +425,8 @@ nb-icon .faint { stroke: var(--nb-muted); }
   .nb-status { font-size: 0; margin-right: 6px; white-space: nowrap;
     &::after { font-size: 11.5px; content: '✓ Saved'; }
     &[data-state='saving']::after { content: 'Saving…'; }
-    &[data-state='error']::after { content: '⚠ Not saved'; } }
+    &[data-state='error']::after { content: '⚠ Not saved'; }
+    &[data-state='offline']::after { content: '⇣ On this device'; } }
   .nb-main { flex-direction: column-reverse; position: relative; }
   .nb-toolbar {
     width: auto;

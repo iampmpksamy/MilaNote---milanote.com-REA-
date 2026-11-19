@@ -1,39 +1,97 @@
-# Saving reliably now, offline editing next
+# Offline editing and sync — 3.0.0-alpha.5
 
-**What exists in 3.0.0-alpha.4 is reliable online saving, not offline editing.** The apps need the
-server to open and change boards. They keep unsent changes safe when the connection drops, but you
-can't open the app without the server and work on your boards. That is the next milestone.
+The apps (Android, iOS, Windows) work without a connection: they open the boards from the copy kept
+on the device, every change is saved there first, and everything is sent and merged with other
+devices' changes when the server answers again. The browser uses the same sync layer (changes made
+while the connection drops are kept and merged); it still needs the server to open the page.
 
-## Built and tested (all clients: browser, Android, iOS, Windows)
+## How it works
 
-| Guarantee | How |
+```
+ device copy (IndexedDB, per server + account)          server (MongoDB)
+ ┌──────────────────────────────────────────┐            ┌───────────────────────┐
+ │ base   = server's boards at revision N   │  PUT rev N │ boards at revision N  │
+ │ local  = boards on this device now        │──────────▶│  → N+1 (accepted)     │
+ │ sent   = last saves sent (+ operation id) │  409       │  or "changed since"   │
+ │ pictures (to upload / cached)             │◀──────────│ recentOps (last 20)   │
+ └──────────────────────────────────────────┘            └───────────────────────┘
+          │ 409 → GET → merge(base, local, server) → PUT merged → workspace shows it
+```
+
+1. **Every edit** goes into the device copy first (`apps/web/src/app/native/replica.ts`), then the
+   sync loop (`apps/web/src/app/server/sync-storage.ts`) sends it.
+2. **Online, nobody else saved:** the save carries the revision it was based on and is accepted.
+3. **Another device saved meanwhile (409):** the device fetches the server's boards and merges
+   them three-way with its own (`mergeStores`, `packages/board-model/src/lib/merge.ts`), takes the
+   result itself, saves it, and the open boards update in place.
+4. **No connection:** the change stays on the device; the header says "Saved on this device" and a
+   banner says you're offline. Retries come after 2, 5, 10, 20, 30, then every 60 seconds, and at
+   once when the connection returns (`online`), when the app comes back to the foreground, and on
+   *Try now*.
+5. **Opening without a connection (apps):** if the server can't be reached and this account has a
+   copy on the device, the app opens it straight away (signed in as before). The sign-in is
+   refreshed and the session re-checked when the server answers again.
+6. **Other devices' changes** are fetched when the app comes to the foreground, when the connection
+   returns and every minute while it is visible.
+7. **Pictures** added offline are kept on the device and uploaded before the boards that use them;
+   pictures already seen are cached so they show offline. Picture files get a random part in their
+   name, so two devices adding pictures offline can't overwrite each other's.
+8. **A save whose answer was lost:** the server keeps the operation ids of its last 20 saves and
+   returns them; the device then uses what actually arrived as the starting point of the merge,
+   so nothing is duplicated. Before sending a merge, the device adopts it itself, so a retry can
+   never undo the other device's changes.
+9. **Edits made while a merge runs** (or while a note is open for editing) are put on top of the
+   merged boards afterwards; ids renumbered by the merge are translated first.
+
+## Merge rules
+
+Each board, card, line and trash item is compared field by field with the last synced version:
+
+| Situation | Result |
 | --- | --- |
-| A stale copy never overwrites newer boards | every save carries the revision it was made on; the server refuses it (`409`) if someone saved in between |
-| A save is acknowledged | the server answers with the new revision; only then is the change considered saved ("Saved to server") |
-| Retried saves are idempotent | every save has an operation id; if an answer is lost and the same save is sent again, the server acknowledges it (`replayed: true`) instead of reporting a conflict |
-| Save failures are visible | a banner: "Can't reach the server … kept on this device", "changed somewhere else", or "refused" |
-| Retries | 2 s, 5 s, 10 s, 20 s, 30 s, then every 60 s; *Try now* and any new edit retry at once; the save that was in flight is repeated unchanged first, newer edits follow |
-| Drafts survive closing the app | until the server confirms a save, the change (and edits made after it) are kept on the device (IndexedDB, per server and account); on the next start they are sent if the boards weren't changed elsewhere |
-| Conflicts don't lose work | if the boards were changed elsewhere, the kept change can be saved as a file (*Save my unsent changes as a file*, a `boards.json` that Settings → Privacy & data can import) or discarded |
-| A failed load never saves | if the boards can't be loaded, the app says so and saves nothing (no sample boards over real ones) |
+| Changed on one device only | that change |
+| Different cards / fields changed on each device | both changes |
+| Same note/to-do/link/picture changed on both | the server's version stays; this device's version is added to **Unsorted** as "Conflicting copy (Android, date)" and a banner says so |
+| Board name, column title or line label changed on both | the server's stays; this device's is added to Unsorted as a "Conflicting copy" note |
+| Position, size, colour, order, lock, line style changed on both | this device's |
+| Edited on one, deleted for good (trash emptied) on the other | the edited item comes back; a board that comes back also gets its board card back |
+| Moved to the trash on one, edited on the other | stays in the trash, with the edit |
+| Moved to the trash on one, deleted for good on the other | deleted |
+| Cards added to the same column / Unsorted on both | all of them, in a sensible order |
+| New items on both devices that got the same id | this device's are renumbered, all references (columns, lines, board cards, parents, trash) rewritten |
+| New cards from both devices on the same spot | this device's moves down and right |
 
-Tests: integration (`saving from a flaky connection`), native app browser test (a broken connection:
-edits made while every save fails are kept, sent when the server answers, and present after reopening).
+The merged result always satisfies the model's invariants (`repairStore`) and the server's check
+(`checkStore`, now in the model package). Trash items keep what restoring needs (a card's column,
+lines to cards still on the board).
 
-## Next milestone: offline editing (designed, not built)
+## Isolation and sign-out
 
-1. **Local copy per server+account** (IndexedDB on phones/Windows) loaded first, then refreshed.
-2. **Persistent operation queue:** board edits recorded as operations (create/move/edit/delete card,
-   line, board) with ids, base revision and timestamps instead of whole-workspace snapshots.
-3. **Server operations endpoint** (`POST /api/v1/workspace/ops`) applying operations per board, with
-   per-board revisions so edits on different boards never conflict.
-4. **Conflict resolution:** field-level last-writer-wins for card text/position/style; edits to a
-   deleted card come back as a "restored" card in Unsorted; text conflicts keep both versions.
-5. **Deletion tombstones** kept for 30 days so a device that was offline learns about deletions.
-6. **Picture upload queue:** pictures added offline are stored locally and uploaded first, before the
-   operations that reference them.
-7. **Isolation:** queues, caches and pictures stored per server and account and removed on sign-out.
-8. **Tests:** two devices editing the same and different boards offline, reconnect in both orders;
-   deletion vs. edit; picture added offline; sign-out while changes are queued.
+- Copies and pictures are stored per server **and** account; tokens never go to another server.
+- Signing out deletes the account's copy and pictures from the device. If changes haven't reached
+  the server yet, the app asks first.
+- *Forget server* deletes every copy for that server.
+- If the session was ended elsewhere while the device was offline, the app asks to sign in again;
+  unsent changes stay on the device and are merged after signing in to the same account.
 
-Real-time collaboration (Yjs) builds on the same operation model later.
+## Tests
+
+| Suite | What |
+| --- | --- |
+| `packages/board-model/src/lib/merge.spec.ts` (22) | each rule above, invariants, 300 randomised two-device sessions (nothing typed lost, always valid) |
+| `merge.attack-*.spec.ts` (69) | written by five independent adversarial reviewers (ids, data loss, deletion, invariants/server check, convergence/performance); 38 defects they found were fixed, the tests stay as regressions — including stores of 150 000 cards and 2 000-item lists |
+| `apps/api/integration/native.test.mjs` | idempotent saves, `recentOps` |
+| `apps/web-e2e/native/app.spec.ts` | the app opened with the server unreachable, a note and a picture added offline, the app reopened offline, another device editing meanwhile, reconnect → both devices have everything (picture included); the same note edited on both → conflicting copy in Unsorted on both |
+
+## Limits (honest list)
+
+- The browser can't open the page without the server (it is served by the server); the apps can.
+- The apps can't be signed in for the first time, or switched to another account, without a
+  connection.
+- Merges work on the whole boards file (fine for thousands of cards; tested with 150 000).
+- A save whose answer was lost and that is older than the server's last 20 saves could, in a very
+  unlikely case, produce a duplicate card (never a loss).
+- Real-time collaboration (seeing another device's typing live) is not part of this; changes
+  arrive on save, foreground, reconnect or every minute.
+- Not yet run on a physical phone with airplane mode (the tests cut the server connection in a
+  mobile browser emulation of the app bundle).

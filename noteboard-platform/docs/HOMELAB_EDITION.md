@@ -1,4 +1,4 @@
-# Noteboard Homelab Edition (3.0.0-alpha.4)
+# Noteboard Homelab Edition (3.0.0-alpha.5)
 
 The self-hosted server for Noteboard: one Docker Compose application (one CasaOS tile) that holds
 everything — web app, API, background worker, MongoDB and Redis. The installation guides are in

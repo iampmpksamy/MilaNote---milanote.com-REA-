@@ -3,6 +3,26 @@
 Versions follow `MAJOR.MINOR.PATCH[-pre]`. Major 2 = the Rust desktop app, major 3 = the
 cross-platform platform; `-alpha.N` marks platform milestone N.
 
+## 3.0.0-alpha.5 — 2026-11-20 (offline editing)
+
+- **Offline editing in the apps:** boards open without a connection from the copy kept on the
+  device; every change is saved there first and sent when the server answers (retries with growing
+  pauses, at once when the connection or the app comes back). Header: "Saved on this device".
+- **Sync between devices:** when another device saved meanwhile, the boards are merged three-way
+  (field by field from the last synced version) instead of refused: both devices' changes are kept;
+  a card changed on both keeps the server's version and adds this device's as a "Conflicting copy"
+  in Unsorted; names and labels likewise; deleted-vs-edited keeps the edit; new items that got the
+  same id are renumbered with every reference. Other devices' changes are fetched on foreground,
+  reconnect and every minute. The browser uses the same layer.
+- **Pictures** added offline are uploaded before the boards that use them and cached for offline
+  viewing; picture file names are now unique across devices.
+- **Server:** keeps the ids of its last 20 saves (`recentOps`) so a device whose answer was lost
+  merges from what arrived. No database schema change.
+- **Model:** `mergeStores`, `repairStore`, `mergeList` and the store check (`checkStore`, moved from
+  the server) in `@noteboard/board-model`.
+- **Tests:** 104 model/merge tests (69 written by an adversarial review that found 38 defects, all
+  fixed), API 37, native app 13 (2 offline end-to-end), browser 13 + 6.
+
 ## 3.0.0-alpha.4 — 2026-11-19 (native apps, part 1)
 
 - **Server:** native sign-in for the apps — `X-Noteboard-Client: native` + bearer tokens (15-minute
