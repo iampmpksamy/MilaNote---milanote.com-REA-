@@ -1,0 +1,9 @@
+{
+  "name": "board-model",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/board-model/src",
+  "projectType": "library",
+  "tags": ["type:model", "scope:shared"],
+  "// targets": "to see all targets run: nx show project board-model --web",
+  "targets": {}
+}

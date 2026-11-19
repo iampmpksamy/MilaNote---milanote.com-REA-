@@ -1,0 +1,354 @@
+<input #file type="file" hidden (change)="onFile($event)" />
+
+<header class="nb-header">
+  <svg class="nb-logo" viewBox="0 0 22 22" aria-label="Noteboard"><circle cx="11" cy="11" r="9.5" /><rect x="6.5" y="7" width="7" height="8" rx="1" /><path d="M13.5 7l2.5 2.5h-2.5z" /></svg>
+  <nav class="nb-crumbs" aria-label="Where you are">
+    @for (b of ws.path(); track b.id; let last = $last) {
+      @if (last) {
+        <span class="nb-crumb current">{{ b.name }}</span>
+      } @else {
+        <button class="nb-crumb" (click)="ws.openBoard(b.id)" title="Go to this board">{{ b.name }}</button>
+        <span class="nb-sep">/</span>
+      }
+    }
+  </nav>
+  <span class="nb-spacer"></span>
+  <span class="nb-status" [class.error]="ws.saveError()">{{ ws.saveError() ? "Couldn't save" : ws.dirty() ? 'Saving…' : 'Saved' }}</span>
+  <button class="nb-iconbtn" data-testid="undo" title="Undo (Ctrl+Z)" [disabled]="!ws.canUndo()" (click)="ws.undo()"><nb-icon name="Undo" /></button>
+  <button class="nb-iconbtn" data-testid="redo" title="Redo (Ctrl+Shift+Z)" [disabled]="!ws.canRedo()" (click)="ws.redo()"><nb-icon name="Redo" /></button>
+  <span class="nb-vsep"></span>
+  <button class="nb-iconbtn" title="Help and shortcuts" (click)="ws.popup.set(ws.popup()?.kind === 'help' ? null : { kind: 'help' })"><nb-icon name="Help" /></button>
+  <button class="nb-iconbtn" data-testid="search" title="Search (Ctrl+F)" (click)="ws.popup.set(ws.popup()?.kind === 'search' ? null : { kind: 'search' })"><nb-icon name="Search" /></button>
+  <button class="nb-iconbtn" data-testid="settings" title="Settings" (click)="ws.settingsOpen.set(true)"><nb-icon name="Settings" /></button>
+</header>
+
+<div class="nb-main">
+  <nav class="nb-toolbar" aria-label="Tools">
+    @let m = mode();
+    @switch (m.kind) {
+      @case ('default') {
+        @for (t of tools; track $index) {
+          @if (t === null) {
+            <hr class="nb-tsep" />
+          } @else if (toolVisible(t)) {
+            <button class="nb-tool" [attr.data-tool]="t" [class.disabled]="unavailable.includes(t)" [title]="unavailable.includes(t) ? 'Not available in this version yet' : t === 'Line' ? 'Click or drag to add a line, then drag its ends onto cards' : 'Click to add, or drag onto the board'"
+              (pointerdown)="ctl.toolDown(t, $event)">
+              <nb-icon [name]="t" /><span>{{ t }}</span>
+            </button>
+          }
+        }
+      }
+      @case ('card') {
+        @if (m.kind === 'card') {
+          @let c = m.card;
+          <button class="nb-tool back" data-tool="Back" title="Back to all tools" (click)="back()"><nb-icon name="Back" /></button>
+          @if (isBoard(c)) {
+            <button #b1 class="nb-tool" data-tool="Color" [class.active]="ws.popup()?.kind === 'board-color'" title="Board color" (click)="popupFor('board-color', b1, { card: c.id })"><span class="nb-swatch-icon" [style.background]="boardColors[boardColorOf(c)][1]"></span><span>Color</span></button>
+            <button #b2 class="nb-tool" data-tool="Icon" [class.active]="ws.popup()?.kind === 'board-icon'" title="Board icon" (click)="popupFor('board-icon', b2, { card: c.id })"><nb-icon name="Icon" /><span>Icon</span></button>
+            <button class="nb-tool" data-tool="Rename" [class.active]="ws.editing() === c.id" title="Rename the board" (click)="ws.edit(c.id)"><nb-icon name="Rename" /><span>Rename</span></button>
+            <button class="nb-tool" data-tool="Open" title="Open the board (or double-click it)" (click)="ws.openBoard(ws.boardOf(c)!.id)"><nb-icon name="Open" /><span>Open</span></button>
+          } @else if (kindOf(c) === 'Image') {
+            <button class="nb-tool" data-tool="Caption" [class.active]="ws.editing() === c.id" title="Write a caption" (click)="ws.edit(c.id)"><nb-icon name="Caption" /><span>Caption</span></button>
+            <button class="nb-tool" data-tool="Replace" title="Choose another picture" (click)="replacePicture(c)"><nb-icon name="Replace" /><span>Replace</span></button>
+          } @else if (kindOf(c) === 'Column') {
+            <button class="nb-tool" data-tool="Rename" [class.active]="ws.editing() === c.id" title="Rename the column" (click)="ws.edit(c.id)"><nb-icon name="Rename" /><span>Rename</span></button>
+            <button class="nb-tool" data-tool="Add note" title="Add a note to the bottom of the column" (click)="addNoteToColumn(c)"><nb-icon name="Add note" /><span>Add note</span></button>
+          } @else {
+            <button #b3 class="nb-tool" data-tool="Color" [class.active]="ws.popup()?.kind === 'card-color'" title="Card color" (click)="popupFor('card-color', b3, { card: c.id })"><span class="nb-swatch-icon" [style.background]="cardColor(c)"></span><span>Color</span></button>
+            @if (kindOf(c) === 'Todo') {
+              <button class="nb-tool" data-tool="Add task" title="Add a task at the end" (click)="addTask(c)"><nb-icon name="Add task" /><span>Add task</span></button>
+            }
+            @if (kindOf(c) === 'Link') {
+              <button class="nb-tool" data-tool="Open" title="Open in your browser" (click)="openLink(c)"><nb-icon name="Open" /><span>Open</span></button>
+            }
+            <button class="nb-tool" data-tool="Edit" [class.active]="ws.editing() === c.id" title="Edit (Enter or double-click)" (click)="ws.edit(c.id)"><nb-icon name="Edit" /><span>Edit</span></button>
+            @if (kindOf(c) === 'Note') {
+              <button class="nb-tool" data-tool="Align" title="Text alignment" (click)="ws.cycleAlign(c.id)"><nb-icon name="Align" /><span>{{ ['Left', 'Centre', 'Right'][c.align] }}</span></button>
+            }
+          }
+          <button class="nb-tool" data-tool="Duplicate" title="Duplicate (Ctrl+D)" (click)="ws.duplicate()"><nb-icon name="Duplicate" /><span>Duplicate</span></button>
+          <button #b4 class="nb-tool" data-tool="More" title="More actions" (click)="more(b4, c)"><nb-icon name="More" /><span>More</span></button>
+        }
+      }
+      @case ('line') {
+        @if (m.kind === 'line') {
+          @let a = m.arrow;
+          <button class="nb-tool back" data-tool="Back" title="Back to all tools" (click)="back()"><nb-icon name="Back" /></button>
+          <button #l1 class="nb-tool" data-tool="Color" [class.active]="ws.popup()?.kind === 'line-color'" title="Line color" (click)="popupFor('line-color', l1, { arrow: a.id })"><span class="nb-swatch-icon" [style.background]="lineColors[a.color % lineColors.length][1]"></span><span>Color</span></button>
+          <button class="nb-tool" data-tool="Start" [class.active]="a.head_start" title="Arrowhead at the start" (click)="ws.editArrow(a.id, $any(flipStart))"><nb-icon name="Start" /><span>Start</span></button>
+          <button class="nb-tool" data-tool="End" [class.active]="a.head" title="Arrowhead at the end" (click)="ws.editArrow(a.id, $any(flipEnd))"><nb-icon name="End" /><span>End</span></button>
+          <button #l2 class="nb-tool" data-tool="Label" [class.active]="ws.popup()?.kind === 'line-label'" title="Write a label on the line" (click)="popupFor('line-label', l2, { arrow: a.id })"><nb-icon name="Label" /><span>Label</span></button>
+          <button class="nb-tool" data-tool="Dashed" [class.active]="a.dashed" title="Dashed or solid" (click)="ws.editArrow(a.id, $any(flipDashed))"><nb-icon name="Dashed" /><span>Dashed</span></button>
+          <button #l3 class="nb-tool" data-tool="Weight" [class.active]="ws.popup()?.kind === 'line-weight'" title="Line thickness" (click)="popupFor('line-weight', l3, { arrow: a.id })"><nb-icon name="Weight" /><span>Weight</span></button>
+          <button class="nb-tool" data-tool="Delete" title="Delete the line (Delete)" (click)="ws.deleteSelection()"><nb-icon name="Delete" /><span>Delete</span></button>
+        }
+      }
+      @case ('multi') {
+        <button class="nb-tool back" data-tool="Back" title="Back to all tools" (click)="back()"><nb-icon name="Back" /></button>
+        <button class="nb-tool" data-tool="Duplicate" title="Duplicate (Ctrl+D)" (click)="ws.duplicate()"><nb-icon name="Duplicate" /><span>Duplicate</span></button>
+        <button class="nb-tool" data-tool="Delete" title="Move to the trash (Delete)" (click)="ws.deleteSelection()"><nb-icon name="Delete" /><span>Delete</span></button>
+      }
+    }
+    <span class="nb-spacer"></span>
+    <button class="nb-tool" data-tool="Trash" [class.active]="ws.showTrash()" title="Deleted cards, ready to restore" (click)="ws.showTrash.set(!ws.showTrash())">
+      <nb-icon name="Trash" /><span>Trash</span>
+      @if (ws.trash().length) { <b class="nb-badge">{{ ws.trash().length }}</b> }
+    </button>
+  </nav>
+
+  <section #canvas class="nb-canvas" [class.grid]="ws.prefs().show_grid" [style.background-size]="gridStyle().size" [style.background-position]="gridStyle().pos"
+    (pointerdown)="ctl.down($event)" (dblclick)="ctl.dblclick($event)" (contextmenu)="ctl.contextmenu($event)" (wheel)="ctl.wheel($event)"
+    (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
+    <div #world class="nb-world" [style.transform]="worldTransform()">
+      <svg class="nb-lines">
+        @for (l of lines(); track $index) {
+          @if (l) {
+            @if (l.selected) { <path class="nb-line-halo" [attr.d]="'M' + l.p1.x + ',' + l.p1.y + 'L' + l.p2.x + ',' + l.p2.y" [attr.stroke-width]="l.width + 7" /> }
+            <path [attr.d]="l.d" [attr.stroke]="l.color" [attr.stroke-width]="l.width" [attr.stroke-dasharray]="l.dash" fill="none" />
+            @if (l.headEnd) { <polygon [attr.points]="l.headEnd" [attr.fill]="l.color" /> }
+            @if (l.headStart) { <polygon [attr.points]="l.headStart" [attr.fill]="l.color" /> }
+          }
+        }
+        @for (g of ctl.guides; track $index) {
+          <line class="nb-guide" [attr.x1]="g[0].x" [attr.y1]="g[0].y" [attr.x2]="g[1].x" [attr.y2]="g[1].y" />
+        }
+        @if (ctl.connectLine; as cl) {
+          <line class="nb-connecting" [attr.x1]="cl[0].x" [attr.y1]="cl[0].y" [attr.x2]="cl[1].x" [attr.y2]="cl[1].y" />
+        }
+      </svg>
+      @for (l of lines(); track $index) {
+        @if (l && l.a.label) { <div class="nb-line-label" [style.left.px]="l.mid.x" [style.top.px]="l.mid.y">{{ l.a.label }}</div> }
+      }
+      @for (c of canvasCards(); track c.id) {
+        <nb-card-view [card]="c" [style.left.px]="c.pos[0]" [style.top.px]="c.pos[1]" [style.z-index]="c.z" />
+      }
+      @if (ctl.hoverTarget !== null && ws.anchors().get(ctl.hoverTarget); as t) {
+        <div class="nb-target" [style.left.px]="t.x" [style.top.px]="t.y" [style.width.px]="t.w" [style.height.px]="t.h"></div>
+      }
+      @for (l of lines(); track $index) {
+        @if (l && l.selected) {
+          <div class="nb-handle" data-handle="end" [attr.data-id]="l.a.id" data-end="0" [style.left.px]="l.p1.x" [style.top.px]="l.p1.y" [style.--z]="ws.view().zoom" title="Drag onto a card to attach"></div>
+          <div class="nb-handle" data-handle="end" [attr.data-id]="l.a.id" data-end="1" [style.left.px]="l.p2.x" [style.top.px]="l.p2.y" [style.--z]="ws.view().zoom" title="Drag onto a card to attach"></div>
+        }
+      }
+      @if (handles(); as h) {
+        <div class="nb-handle connect" data-handle="connect" [attr.data-id]="h.id" [style.left.px]="h.connect.x" [style.top.px]="h.connect.y" [style.--z]="ws.view().zoom" title="Drag to connect to another card"></div>
+        @if (h.resize; as r) {
+          <div class="nb-resize" data-handle="resize" [attr.data-id]="h.id" [style.left.px]="r.x" [style.top.px]="r.y" [style.--z]="ws.view().zoom" title="Drag to change the width"></div>
+        }
+      }
+      @if (ctl.band; as b) {
+        <div class="nb-band" [style.left.px]="b.x" [style.top.px]="b.y" [style.width.px]="b.w" [style.height.px]="b.h"></div>
+      }
+    </div>
+    @if (ws.loaded() && !canvasCards().length && !ws.board().arrows.length) {
+      <div class="nb-empty">Drag a card from the toolbar, or double-click anywhere to start a note</div>
+    }
+    @if (!ws.prefs().drawer_open) {
+      <button class="nb-pill nb-float" data-testid="unsorted-pill" [class.hot]="ws.dropUnsorted()" title="Open the Unsorted drawer" (click)="ws.setPrefs({ drawer_open: true })"><b>{{ ws.board().unsorted.length }}</b> Unsorted</button>
+    }
+    <div class="nb-zoom nb-float">
+      <button title="Zoom out (Ctrl+−)" (click)="zoomBy(1 / 1.2)">−</button>
+      <button class="pct" title="Back to 100% (Ctrl+0)" (click)="zoomBy(1 / ws.view().zoom)">{{ pct() }}</button>
+      <button title="Zoom in (Ctrl+=)" (click)="zoomBy(1.2)">+</button>
+      <span class="nb-vsep"></span>
+      <button title="Show everything on this board" (click)="ws.fit(ctl.canvasSize())">Fit</button>
+    </div>
+  </section>
+
+  @if (ws.prefs().drawer_open) {
+    <aside class="nb-drawer" [class.hot]="ws.dropUnsorted()" (pointerdown)="ctl.down($event)">
+      <div class="nb-drawer-head">
+        <b>Unsorted</b><span class="nb-muted">{{ unsortedCards().length }}</span><span class="nb-spacer"></span>
+        <button class="nb-iconbtn small" title="Close the drawer" (click)="ws.setPrefs({ drawer_open: false })"><nb-icon name="Close" /></button>
+      </div>
+      <p class="nb-muted">Cards waiting for a place. Drag them onto the board.</p>
+      <button class="nb-button wide" (click)="ws.create('Note', { unsorted: true })">+&nbsp; Quick note</button>
+      <div class="nb-drawer-list">
+        @for (c of unsortedCards(); track c.id) { <nb-card-view [card]="c" class="in-drawer" /> }
+        @empty { <p class="nb-muted center">Nothing here yet</p> }
+      </div>
+    </aside>
+  }
+</div>
+
+<!-- pickers beside the toolbar -->
+@if (ws.popup(); as p) {
+  @if (p.kind !== 'search' && p.kind !== 'help') {
+    <div class="nb-popup nb-tool-popup" [style.top.px]="$any(p).y">
+      @switch (p.kind) {
+        @case ('card-color') {
+          <h4>Color</h4>
+          <div class="nb-swatches">
+            @for (col of cardColors; track $index) {
+              @if ('card' in p) { <button class="nb-swatch" [attr.data-color]="$index" [class.on]="ws.card(p.card)?.color === $index" [style.background]="ws.dark() ? col[2] : col[1]" [title]="col[0]" (click)="ws.setCardColor(p.card, $index)"></button> }
+            }
+          </div>
+        }
+        @case ('board-color') {
+          <h4>Board color</h4>
+          <div class="nb-board-swatches">
+            @for (col of boardColors; track $index) {
+              @if ('card' in p) { <button class="nb-board-swatch" [attr.data-color]="$index" [class.on]="boardColorOf(ws.card(p.card)!) === $index" [style.background]="col[1]" [title]="col[0]" (click)="ws.setCardColor(p.card, $index)"></button> }
+            }
+          </div>
+          @if ('card' in p) { <button class="nb-link-btn" (click)="ws.setCardColor(p.card, 0)">Reset to default</button> }
+        }
+        @case ('board-icon') {
+          <h4>Board icon</h4>
+          <input class="nb-field" placeholder="Find an icon..." [value]="iconQuery()" (input)="iconQuery.set($any($event.target).value)" />
+          <div class="nb-icon-grid">
+            @for (ic of icons(); track ic[0]) {
+              @if ('card' in p) { <button [attr.data-icon]="ic[0]" [title]="ic[1]" (click)="ws.setBoardIcon(p.card, ic[0])">{{ ic[0] }}</button> }
+            } @empty { <span class="nb-muted">No icon matches</span> }
+          </div>
+          @if ('card' in p) { <button class="nb-link-btn" (click)="ws.setBoardIcon(p.card, null)">No icon</button> }
+        }
+        @case ('line-color') {
+          <h4>Line color</h4>
+          <div class="nb-swatches">
+            @for (col of lineColors; track $index) {
+              @if ('arrow' in p) { <button class="nb-swatch" [style.background]="col[1]" [title]="col[0]" (click)="ws.editArrow(p.arrow, $any(setColorFn($index)))"></button> }
+            }
+          </div>
+        }
+        @case ('line-weight') {
+          <h4>Thickness</h4>
+          @for (w of [1, 2, 3]; track w) {
+            @if ('arrow' in p) {
+              <button class="nb-weight" (click)="ws.editArrow(p.arrow, $any(setWeightFn(w)))"><span [style.height.px]="w === 1 ? 1.6 : w === 2 ? 2.6 : 4"></span>{{ ['Thin', 'Medium', 'Thick'][w - 1] }}</button>
+            }
+          }
+        }
+        @case ('line-label') {
+          <h4>Label</h4>
+          @if ('arrow' in p) {
+            <input class="nb-field" placeholder="Write a label..." [value]="labelText()" (input)="labelText.set($any($event.target).value)" (keydown.enter)="applyLabel(p.arrow)" (keydown)="$event.stopPropagation()" />
+            <div class="nb-row"><button class="nb-button" (click)="applyLabel(p.arrow)">Done</button><button class="nb-link-btn" (click)="labelText.set(''); applyLabel(p.arrow)">Clear</button></div>
+          }
+        }
+      }
+    </div>
+  }
+  @if (p.kind === 'search') {
+    <div class="nb-popup nb-header-popup">
+      <input class="nb-field" data-testid="search-input" placeholder="Search boards and cards" #searchInput [value]="ws.search()" (input)="ws.search.set($any($event.target).value)"
+        (keydown.enter)="ws.hits().length && ws.gotoHit(ws.hits()[0])" (keydown)="$event.key !== 'Escape' && $event.stopPropagation()" />
+      @if (!ws.search().trim()) {
+        <p class="nb-muted">Type to find boards, notes, tasks and links on every board.</p>
+      } @else {
+        @for (h of ws.hits(); track $index) {
+          <button class="nb-hit" (click)="ws.gotoHit(h)"><span class="nb-hit-tag">{{ h.kind[0] }}</span><span><b>{{ h.title }}</b><small>{{ h.kind }} · {{ h.snippet }}</small></span></button>
+        } @empty { <p class="nb-muted">No matching boards or cards</p> }
+      }
+    </div>
+  }
+  @if (p.kind === 'help') {
+    <div class="nb-popup nb-header-popup">
+      <h4>Keyboard shortcuts</h4>
+      <dl class="nb-keys">
+        <dt>Double-click</dt><dd>Write a note / open a board</dd>
+        <dt>N</dt><dd>New note</dd>
+        <dt>Enter</dt><dd>Edit the selected card</dd>
+        <dt>Delete</dt><dd>Move to the trash</dd>
+        <dt>Ctrl+Z / Ctrl+Shift+Z</dt><dd>Undo / redo</dd>
+        <dt>Ctrl+C, X, V</dt><dd>Copy, cut, paste (pictures too)</dd>
+        <dt>Ctrl+D</dt><dd>Duplicate</dd>
+        <dt>Ctrl+A</dt><dd>Select everything</dd>
+        <dt>Ctrl+F</dt><dd>Search</dd>
+        <dt>Scroll / Space+drag</dt><dd>Move around</dd>
+        <dt>Ctrl+scroll, Ctrl+0</dt><dd>Zoom, back to 100%</dd>
+        <dt>Ctrl+Shift+D</dt><dd>Light or dark</dd>
+        <dt>Ctrl+Shift+&lt; or &gt;</dt><dd>Interface size</dd>
+        <dt>Esc</dt><dd>Finish / clear selection</dd>
+      </dl>
+    </div>
+  }
+}
+
+@if (formatBar(); as f) {
+  <div class="nb-popup nb-format" [class.above]="f.above" [style.left.px]="f.x" [style.top.px]="f.y" (pointerdown)="$event.preventDefault()">
+    <button title="Bold" (click)="format('wrap', '**')"><b>B</b></button>
+    <button title="Italic" (click)="format('wrap', '*')"><i>I</i></button>
+    <button title="Underline" (click)="format('wrap', '__')"><u>U</u></button>
+    <button title="Strikethrough" (click)="format('wrap', '~~')"><s>S</s></button>
+    <button title="Large heading" (click)="format('prefix', '# ')"><b>H1</b></button>
+    <button title="Small heading" (click)="format('prefix', '## ')"><b>H2</b></button>
+    <button title="Bullet list" (click)="format('prefix', '- ')">•</button>
+    <button title="Quote" (click)="format('prefix', '> ')">“</button>
+    <button title="Text alignment" (click)="ws.cycleAlign(ws.editing()!)">≡ {{ ['Left', 'Centre', 'Right'][f.align] }}</button>
+    <span class="nb-vsep"></span>
+    <button class="accent" (click)="ws.stopEditing()">Done</button>
+  </div>
+}
+
+@if (ws.menu(); as mn) {
+  <div class="nb-popup nb-menu" [style.left.px]="mn.x" [style.top.px]="mn.y">
+    @if (menuCard(); as c) {
+      @if (isBoard(c)) {
+        <button (click)="menuAction('open')">Open board <kbd>Double-click</kbd></button>
+        <button (click)="menuAction('edit')">Rename</button>
+      } @else {
+        <button (click)="menuAction('edit')">Edit <kbd>Enter</kbd></button>
+      }
+      <hr />
+      <button (click)="menuAction('duplicate')">Duplicate <kbd>Ctrl+D</kbd></button>
+      <button (click)="menuAction('copy')">Copy <kbd>Ctrl+C</kbd></button>
+      @if (c.container === 'Canvas') {
+        <button (click)="menuAction('front')">Bring to front</button>
+        <button (click)="menuAction('back')">Send to back</button>
+      }
+      <button (click)="menuAction('lock')">{{ c.locked ? 'Unlock' : 'Lock in place' }}</button>
+      @if (c.container === 'Canvas') {
+        @if (kindOf(c) !== 'Column') { <button (click)="menuAction('unsorted')">Move to Unsorted</button> }
+      } @else {
+        <button (click)="menuAction('canvas')">Move onto the board</button>
+      }
+      <hr />
+      <button class="danger" (click)="menuAction('delete')">Move to trash <kbd>Delete</kbd></button>
+    } @else if ('canvas' in mn.target) {
+      <button (click)="menuAction('new:Note')">New note here <kbd>Double-click</kbd></button>
+      <button (click)="menuAction('new:To-do')">New to-do list here</button>
+      <button (click)="menuAction('new:Board')">New board here</button>
+      <button (click)="menuAction('new:Column')">New column here</button>
+      <button (click)="menuAction('new:Line')">New line here</button>
+      <hr />
+      @if (ws.hasClipboard()) { <button (click)="menuAction('paste')">Paste <kbd>Ctrl+V</kbd></button> }
+      <button (click)="menuAction('paste-picture')">Paste picture</button>
+      <button (click)="menuAction('all')">Select all <kbd>Ctrl+A</kbd></button>
+      <button (click)="menuAction('fit')">Zoom to fit</button>
+    } @else {
+      <button (click)="menuAction('detach')">Detach from cards</button>
+      <button (click)="menuAction('duplicate')">Duplicate <kbd>Ctrl+D</kbd></button>
+      <hr />
+      <button class="danger" (click)="menuAction('delete')">Delete line <kbd>Delete</kbd></button>
+    }
+  </div>
+}
+
+@if (ws.showTrash()) {
+  <button class="nb-dim" aria-label="Close the trash" tabindex="-1" (click)="ws.showTrash.set(false)"></button>
+  <div class="nb-dialog nb-trash" role="dialog" aria-label="Trash">
+    <div class="nb-dialog-head"><h3>Trash</h3><button class="nb-iconbtn small" title="Close" (click)="ws.showTrash.set(false)"><nb-icon name="Close" /></button></div>
+    <p class="nb-muted">Deleted cards stay here until you delete them for good.</p>
+    @for (t of ws.trash().slice().reverse(); track t.id) {
+      <div class="nb-trash-row" [attr.data-trash]="t.id">
+        <div><b>{{ trashTitle(t) }}</b><small class="nb-muted">{{ trashLine(t) }}</small></div>
+        <button class="nb-button" (click)="ws.restoreTrash(t.id)">Restore</button>
+        <button class="nb-link-btn danger" (click)="ws.purgeTrash(t.id)">Delete forever</button>
+      </div>
+    } @empty {
+      <p class="nb-muted center">The trash is empty</p>
+    }
+    @if (ws.trash().length) { <div class="nb-row end"><button class="nb-button danger" (click)="ws.emptyTrash()">Empty trash</button></div> }
+  </div>
+}
+
+<nb-settings />
+
+@if (ws.toast(); as t) {
+  <div class="nb-toast" role="status">{{ t.text }} @if (t.undo && ws.canUndo()) { <button (click)="ws.undo(); ws.toast.set(null)">Undo</button> }</div>
+}
+@if (ctl.ghost; as g) {
+  <div class="nb-ghost" [style.left.px]="g.x" [style.top.px]="g.y">{{ g.label }}</div>
+}

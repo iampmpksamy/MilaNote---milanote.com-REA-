@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop-rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: cargo build --release
+      - run: cargo install cargo-audit --locked && cargo audit
+        continue-on-error: true # known Linux-only advisory, see noteboard-platform/docs/MIGRATION_PLAN.md
+
+  platform:
+    runs-on: windows-latest # Microsoft Edge is preinstalled, used by the browser tests
+    defaults:
+      run:
+        working-directory: noteboard-platform
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: noteboard-platform/package-lock.json
+      - run: npm ci
+      - run: npx nx run-many -t lint test
+      - run: npx nx build web
+      - run: npx playwright test -c apps/web-e2e/playwright.config.mts
+      - run: npm audit --omit=dev
