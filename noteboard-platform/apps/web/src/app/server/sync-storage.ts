@@ -178,6 +178,11 @@ export class ServerStorage implements StorageAdapter {
     }
   }
 
+  /** Reads from the server for the cards (maps); same sign-in as everything else here. */
+  apiGet(path: string, as: 'json' | 'blob'): Promise<unknown> {
+    return as === 'blob' ? apiBlob(path) : api('GET', path);
+  }
+
   onExternalChange(handler: (store: Store) => boolean): void {
     this.offerTo = handler;
   }

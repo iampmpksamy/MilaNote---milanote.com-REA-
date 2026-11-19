@@ -9,6 +9,7 @@ import { migrate, SCHEMA_VERSION } from './db';
 import { ErrorFilter, requestState } from './http';
 import { AdminRoutes } from './routes/admin';
 import { AuthRoutes, MeRoutes } from './routes/auth';
+import { GeoRoutes } from './routes/geo';
 import { NativeRoutes } from './routes/native';
 import { discovery, PublicRoutes } from './routes/public';
 import { WorkspaceRoutes } from './routes/workspace';
@@ -19,7 +20,7 @@ class AppModule {
   static forRoot(ctx: Ctx): DynamicModule {
     return {
       module: AppModule,
-      controllers: [PublicRoutes, AuthRoutes, MeRoutes, NativeRoutes, WorkspaceRoutes, AdminRoutes],
+      controllers: [PublicRoutes, AuthRoutes, MeRoutes, NativeRoutes, WorkspaceRoutes, AdminRoutes, GeoRoutes],
       providers: [{ provide: CTX, useValue: ctx }],
     };
   }

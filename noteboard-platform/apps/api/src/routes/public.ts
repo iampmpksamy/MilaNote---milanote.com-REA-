@@ -27,6 +27,8 @@ export async function discovery(ctx: Ctx) {
       adminMfaRequired: ctx.cfg.adminMfaRequired,
       import: ['desktop-boards-json', 'browser-local'],
       maxUploadMb: ctx.cfg.maxUploadMb,
+      // Map cards (search and map pictures through this server; MAP_PROVIDER=off turns them off).
+      maps: ctx.cfg.map.provider !== 'off',
     },
     branding: { accent: s.branding.accent, logo: !!s.branding.logo, favicon: !!s.branding.favicon },
     maintenance: s.maintenance.enabled ? { message: s.maintenance.message } : null,
