@@ -54,7 +54,10 @@ Home lab: Ubuntu 24.04.5, Docker 29.9.3, Compose v5.7.1, CasaOS v0.4.15, data on
 
 Images: GitHub Actions published 3.0.0-alpha.2 to GHCR (public, pulled anonymously from the home lab)
 with SBOMs and Trivy reports; that scan found fixable HIGH/CRITICAL issues in the base images, fixed in
-3.0.0-alpha.3 (hardened images re-tested: 6/6 browser tests against a home-lab stack).
+3.0.0-alpha.3 (hardened images re-tested: 6/6 browser tests against a home-lab stack; its scan shows no
+HIGH/CRITICAL findings). The live CasaOS app was then upgraded with `casaos-cli app-management apply`:
+CasaOS pulled `noteboard-server@sha256:15dbb4fc…` and `noteboard-gateway@sha256:eb8e72c7…` from GHCR and
+all services came back healthy (setup still waiting for the owner).
 
 Not done / needs your access: the Cloudflare hostname; a host reboot test; the CasaOS dashboard view;
 S3 against a real bucket; ARM64.
