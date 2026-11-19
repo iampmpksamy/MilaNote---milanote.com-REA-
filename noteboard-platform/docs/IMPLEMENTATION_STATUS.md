@@ -106,6 +106,25 @@ Bugs found by these tests and fixed: the CORS preflight didn't allow the app's `
 header; an expired access token blocked its own refresh; `notes example` (with a space) was accepted
 as an address.
 
+### Release and live upgrade (2026-11-19)
+
+- Pushed `main` and tag `v3.0.0-alpha.4`. GitHub Actions: CI (Windows: lint, unit, API, Edge browser
+  suites, native app suite) **passed**; docker-release **passed** (images on GHCR:
+  `noteboard-server@sha256:0349b01d…`, `noteboard-gateway@sha256:243f7096…`, SBOMs, Trivy reports);
+  native-ios **passed** (unsigned simulator + device compile on macOS 15); native-windows **passed**;
+  native-android failed on the tag (`gradlew` lost its executable bit in the Windows copy), fixed in
+  `bf763e8` and **passed** on `main`.
+- Release https://github.com/iampmpksamy/MilaNote---milanote.com-REA-/releases/tag/v3.0.0-alpha.4:
+  `Noteboard-3.0.0-alpha.4-android-debug.apk` (+ `SHA256SUMS-android.txt`),
+  `Noteboard-3.0.0-alpha.4-windows-x64-setup.exe` (sha256 `29a4e822…`) and `…-windows-x64.msi`
+  (sha256 `b3a6372b…`) with `SHA256SUMS-windows.txt`, plus the server deployment files.
+- Live CasaOS app upgraded alpha.3 → alpha.4 with `casaos-cli app-management apply` (only the four
+  image tags changed; manual backup `noteboard-backup-20261119-141747-manual.tar.gz` taken first);
+  all five services healthy. Through Cloudflare, `https://notes.6dainas.cloud` reports
+  `native.auth = bearer-v1` and answers the Android app's CORS preflight (204, `https://localhost`).
+- First real-phone attempt (before the upgrade) showed "Can't reach the server": the alpha.3 server
+  refused the app's preflight. The app now reports "server too old" in that case.
+
 ### Not verified (honest list)
 
 - **No physical phone, emulator, Mac or Windows run.** The Android APK has not been installed
@@ -114,8 +133,8 @@ as an address.
   the Back button are only exercised on a device.
 - Windows Credential Manager, installers, WebView2 drag-and-drop/paste and high-DPI behaviour.
 - iOS compile, signing, devices.
-- The live server (notes.6dainas.cloud) still runs 3.0.0-alpha.3, which has no native sign-in; the
-  apps say "too old" until it is upgraded to 3.0.0-alpha.4. Production data was not touched.
+- The Windows installers were built by CI but not yet installed on a Windows PC; the Android app has
+  not yet completed a sign-in on a real phone (in progress with the owner).
 
 ### Checklist for the first phone test (test account, not production data)
 
