@@ -22,9 +22,10 @@ export const nowSecs = (): number => Math.floor(Date.now() / 1000);
 export function ago(secs: number, now = nowSecs()): string {
   const d = Math.max(0, now - secs);
   if (d < 60) return 'just now';
-  if (d < 3600) return ` min ago`;
-  if (d < 86400) return ` h ago`;
-  return ` days ago`;
+  if (d < 3600) return `${Math.floor(d / 60)} min ago`;
+  if (d < 86400) return `${Math.floor(d / 3600)} h ago`;
+  const days = Math.floor(d / 86400);
+  return days === 1 ? '1 day ago' : `${days} days ago`;
 }
 
 export function newId(s: Store): number {
