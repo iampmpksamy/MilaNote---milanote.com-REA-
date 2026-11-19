@@ -7,7 +7,8 @@ any other product are included.
 | Part | Folder | Version | State |
 | --- | --- | --- | --- |
 | Desktop app (Rust, egui/eframe) | `./` (`src/`, `Cargo.toml`) | 2.0.0 | Finished V2; 18 tests |
-| Platform (Nx, Angular — web now; server, desktop shell and mobile later) | `noteboard-platform/` | 3.0.0-alpha.1 | Milestone 1 of 5: shared web workspace; 32 unit + 12 browser tests |
+| Platform (Nx, Angular web app + NestJS server; desktop shell and mobile later) | `noteboard-platform/` | 3.0.0-alpha.2 | Homelab Edition: self-hosted server, accounts, admin panel; 49 unit + 21 API + 19 browser tests |
+| Homelab install (CasaOS, Docker Compose, Portainer) | `deploy/` | 3.0.0-alpha.2 | One CasaOS tile; installed and tested on the home lab |
 
 ## Desktop app
 
@@ -25,6 +26,12 @@ Docs: `docs/` (reference analysis, design tokens, visual comparison, test report
 
 See [noteboard-platform/README.md](noteboard-platform/README.md) and its `docs/` for the
 architecture, migration plan, database schema, API, security and deployment plans.
+
+## Homelab Edition (self-hosted)
+
+Install on CasaOS as one app: [deploy/casaos/README.md](deploy/casaos/README.md). Choose settings
+first (offline): open [deploy/installer/index.html](deploy/installer/index.html). Plain Docker Compose:
+[deploy/compose](deploy/compose/README.md). How it works: [noteboard-platform/docs/HOMELAB_EDITION.md](noteboard-platform/docs/HOMELAB_EDITION.md).
 
 ## Versions
 

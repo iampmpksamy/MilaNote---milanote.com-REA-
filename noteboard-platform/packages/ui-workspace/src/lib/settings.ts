@@ -82,7 +82,11 @@ const PAGES = ['Appearance', 'Preferences', 'Language', 'Toolbar options', 'Priv
             }
             @case (4) {
               <h2>Privacy &amp; data</h2>
-              <p>Your boards are kept in {{ ws.storageLabel }}. Nothing is sent anywhere in this version, and there's no account yet.</p>
+              @if (ws.storageRemote) {
+                <p>Your boards are saved to {{ ws.storageLabel }} under your account, and only you can open them. Export everything from your account page.</p>
+              } @else {
+                <p>Your boards are kept in {{ ws.storageLabel }}. Nothing is sent anywhere, and there's no account in this mode.</p>
+              }
               <p class="nb-muted">{{ counts() }}</p>
               <h3>Bring in boards from the desktop app</h3>
               <p class="nb-muted">Choose <code>boards.json</code> from <code>%APPDATA%\\Noteboard</code> (and, if you like, the pictures in its <code>images</code> folder). You'll see what will be imported before anything changes; the desktop file is only read.</p>

@@ -1,7 +1,9 @@
 @use '../../../packages/ui-workspace/src/lib/workspace';
+@use './server-pages';
 
 html,
 body {
   margin: 0;
   height: 100%;
 }
+

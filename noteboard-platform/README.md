@@ -1,50 +1,64 @@
 # Noteboard platform
 
 The cross-platform successor to the Noteboard desktop app (the Rust/egui app one folder up, kept
-unchanged and tagged `v2-rust-baseline` in Git). One Angular workspace, shared by every client.
+unchanged and tagged `v2-rust-baseline` in Git). One Angular workspace, shared by every client, and
+now a self-hosted server.
 
-**Status: Milestone 1 of 5 is built and tested** — the shared board model, canvas geometry and Angular
-workspace, running as a web app that keeps boards in the browser and can import the desktop app's
-boards. Server, accounts, sync, desktop and mobile shells are designed (see `docs/`) but not built
-yet. Nothing in this README claims otherwise.
+**Status: 3.0.0-alpha.2 — Homelab Edition.** The web app runs in two modes:
+
+- **Server mode** (Homelab Edition): served by the `noteboard-gateway` image in front of the NestJS
+  API, with accounts, private boards saved to MongoDB, pictures on the NAS, `/admin`, backups and an
+  installable PWA. Install with [`../deploy`](../deploy) (one CasaOS tile). Details:
+  [docs/HOMELAB_EDITION.md](docs/HOMELAB_EDITION.md).
+- **Local mode** (Milestone 1): served as plain files, it keeps boards in this browser (IndexedDB).
+
+Desktop (Tauri), Android/iOS (Capacitor), offline sync and real-time collaboration are designed but
+not built. Test evidence: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## Layout
 
 ```
 apps/
-  web/              Angular web app (the shared workspace + browser storage)
-  web-e2e/          Playwright tests that drive the real web app in Microsoft Edge
+  web/              Angular app: boards (shared workspace), sign-in, /setup, /account, /admin;
+                    Dockerfile + gateway/ (nginx) = the noteboard-gateway image
+  api/              NestJS API, worker, init and console tools (one image: noteboard-server);
+                    src/ (server), integration/ (HTTP tests), build.mjs (esbuild bundle)
+  web-e2e/          Playwright tests in Microsoft Edge: src/ (local mode), server/ (server mode)
 packages/
   board-model/      Board data model (same format as the desktop boards.json), operations,
-                    desktop importer, safe note formatting. Plain TypeScript: also for the server.
+                    desktop importer, safe note formatting. Used by the web app and the server.
   canvas-geometry/  View transform, line ends, hit tests, alignment guides, free-spot placement.
-  ui-workspace/     The workspace UI: header, contextual toolbar, canvas, cards, lines, drawer,
-                    search, trash, settings. Storage is pluggable (StorageAdapter).
-tools/serve.mjs     Tiny static server used by the browser tests.
-docs/               Architecture, migration plan and the designs for later milestones.
+  ui-workspace/     The workspace UI. Storage is pluggable (StorageAdapter: IndexedDB, memory,
+                    or the server — apps/web/src/app/server/api.ts).
+tools/              serve.mjs (static files), dev-stack.mjs (MongoDB in memory + API + web, no
+                    Docker), verify-instance.mjs, make_icons.py, make_comparisons.py
+docs/               Architecture, Homelab Edition, migration plan, designs for later milestones.
 ```
-
-Planned additions (not present yet): `apps/api` (NestJS), `apps/worker`, `apps/admin`,
-`apps/desktop` (Tauri v2), `apps/mobile` (Ionic + Capacitor), `packages/sync`, `packages/api-client`.
 
 ## Commands
 
 | What | Command |
 | --- | --- |
 | Install | `npm install` |
-| Build the web app | `npx nx build web` → `dist/apps/web/browser` |
+| Build the web app / the server bundle | `npx nx build web` / `npx nx build api` |
 | Unit and component tests | `npx nx run-many -t test` |
+| Server integration tests (builds first) | `npx nx run api:integration` |
 | Lint | `npx nx run-many -t lint` |
-| Browser tests (builds first) | `npx nx build web && npx playwright test -c apps/web-e2e/playwright.config.mts` |
-| Try it locally | `npx nx build web` then `node tools/serve.mjs dist/apps/web/browser 4321` and open http://127.0.0.1:4321 |
+| Browser tests, local mode | `npx nx build web && npx playwright test -c apps/web-e2e/playwright.config.mts` |
+| Browser tests, server mode | `npx nx build web && npx nx build api && npx playwright test -c apps/web-e2e/playwright.server.config.mts` |
+| … against a real install | add `NB_BASE_URL=http://host:port NB_SETUP_TOKEN=…` (fresh instance) |
+| Run everything locally without Docker | build both, then `node tools/dev-stack.mjs 4322` → http://127.0.0.1:4322 |
+| Docker images | `docker build -f apps/api/Dockerfile -t noteboard-server .` and `-f apps/web/Dockerfile -t noteboard-gateway .` |
 
-Versions validated together on 2026-11-19: Node 26.13, npm 11.20, Nx 24.0, Angular 22.2,
-TypeScript 6.0, Vitest 5, Playwright 1.65, Tailwind CSS 4. `@angular-devkit/architect` is pinned to
-`0.2202.8` (see `overrides` in package.json) because a newer patch breaks Nx 24's builder loading.
+Versions validated together on 2026-11-19: Node 26.13, npm 11.20, Nx 24.0, Angular 22.2, NestJS 12.5,
+MongoDB driver 7.9 (server 8.0.38), ioredis 6 (Redis 8.10.3), TypeScript 6.0, Vitest 5,
+Playwright 1.65, Tailwind CSS 4, esbuild 0.28. `@angular-devkit/architect` is pinned to `0.2202.8`
+(see `overrides` in package.json) because a newer patch breaks Nx 24's builder loading.
 
-## Moving boards from the desktop app
+## Moving boards in
 
-Settings → Privacy & data → *Choose boards.json* (from `%APPDATA%\Noteboard`), optionally *Add
-pictures* from its `images` folder. A dry-run report shows what will come across; *Import* adds
-everything as one board under Home. The desktop file is only read, and the same file can't be
-imported twice.
+- **From the desktop app**: Settings → Privacy & data → *Choose boards.json* (from
+  `%APPDATA%\Noteboard`), optionally *Add pictures* from its `images` folder. A dry-run report shows
+  what will come across; *Import* adds everything as one board under Home. The same file can't be
+  imported twice. In server mode it goes into your account.
+- **From this browser's local boards** (local mode): Account → *Copy into my account*.

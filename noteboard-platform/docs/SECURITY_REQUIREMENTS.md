@@ -1,3 +1,4 @@
 # SECURITY REQUIREMENTS
 
-Kept together with related material in [SECURITY_AND_ACCESS.md](SECURITY_AND_ACCESS.md) so each topic has one source of truth.
+What is implemented and tested: [HOMELAB_EDITION.md §4](HOMELAB_EDITION.md) and the evidence table in
+[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). Wider plan: [SECURITY_AND_ACCESS.md](SECURITY_AND_ACCESS.md).

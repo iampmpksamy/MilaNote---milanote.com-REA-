@@ -13,13 +13,14 @@
     }
   </nav>
   <span class="nb-spacer"></span>
-  <span class="nb-status" [class.error]="ws.saveError()">{{ ws.saveError() ? "Couldn't save" : ws.dirty() ? 'Saving…' : 'Saved' }}</span>
+  <span class="nb-status" data-testid="save-status" [class.error]="ws.saveError()">{{ ws.saveError() ? (ws.storageRemote ? 'Not saved to server' : "Couldn't save") : ws.dirty() ? (ws.storageRemote ? 'Saving to server…' : 'Saving…') : ws.storageRemote ? 'Saved to server' : 'Saved' }}</span>
   <button class="nb-iconbtn" data-testid="undo" title="Undo (Ctrl+Z)" [disabled]="!ws.canUndo()" (click)="ws.undo()"><nb-icon name="Undo" /></button>
   <button class="nb-iconbtn" data-testid="redo" title="Redo (Ctrl+Shift+Z)" [disabled]="!ws.canRedo()" (click)="ws.redo()"><nb-icon name="Redo" /></button>
   <span class="nb-vsep"></span>
   <button class="nb-iconbtn" title="Help and shortcuts" (click)="ws.popup.set(ws.popup()?.kind === 'help' ? null : { kind: 'help' })"><nb-icon name="Help" /></button>
   <button class="nb-iconbtn" data-testid="search" title="Search (Ctrl+F)" (click)="ws.popup.set(ws.popup()?.kind === 'search' ? null : { kind: 'search' })"><nb-icon name="Search" /></button>
   <button class="nb-iconbtn" data-testid="settings" title="Settings" (click)="ws.settingsOpen.set(true)"><nb-icon name="Settings" /></button>
+  <ng-content select="[nbHeaderEnd]" />
 </header>
 
 <div class="nb-main">

@@ -1,0 +1,129 @@
+# Builds, scans and publishes the two Noteboard Homelab Edition images to GitHub Container Registry
+# when a version tag (v3.*) is pushed, or by hand. Only linux/amd64 is built: arm64 is not validated.
+name: docker-release
+
+on:
+  push:
+    tags: ['v3.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 3.0.0-alpha.2); defaults to noteboard-platform/package.json'
+        required: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: noteboard-platform
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: noteboard-platform/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx nx run-many -t test --output-style=static
+      - run: npx nx build api --output-style=static
+      - run: node --test --test-concurrency=1 apps/api/integration/
+      - run: node ../deploy/scripts/render.mjs --check
+      - run: npm audit --omit=dev --audit-level=high
+
+  images:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [server, gateway]
+    steps:
+      - uses: actions/checkout@v5
+      - id: v
+        run: |
+          V="${{ inputs.version }}"
+          if [ -z "$V" ] && [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; fi
+          if [ -z "$V" ]; then V=$(node -p "require('./noteboard-platform/package.json').version"); fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: noteboard-platform
+          file: noteboard-platform/apps/${{ matrix.image == 'server' && 'api' || 'web' }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: mode=max
+          sbom: true
+          build-args: |
+            NOTEBOARD_VERSION=${{ steps.v.outputs.version }}
+            VCS_REF=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ steps.v.outputs.owner }}/noteboard-${{ matrix.image }}:${{ steps.v.outputs.version }}
+            ghcr.io/${{ steps.v.outputs.owner }}/noteboard-${{ matrix.image }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+      - name: Vulnerability report
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ steps.v.outputs.owner }}/noteboard-${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: table
+          output: trivy-${{ matrix.image }}.txt
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '0'
+      - name: SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ steps.v.outputs.owner }}/noteboard-${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.image }}.spdx.json
+          upload-artifact: false
+      - run: echo "ghcr.io/${{ steps.v.outputs.owner }}/noteboard-${{ matrix.image }}@${{ steps.build.outputs.digest }}" > digest-${{ matrix.image }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.image }}
+          path: |
+            trivy-${{ matrix.image }}.txt
+            sbom-${{ matrix.image }}.spdx.json
+            digest-${{ matrix.image }}.txt
+
+  release:
+    needs: images
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Release notes from CHANGELOG.md
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v v="$V" '$0 ~ "^## "v" " {p=1; next} /^## / {p=0} p' CHANGELOG.md > notes.md
+          { echo; echo "### Images (linux/amd64)"; echo; echo '```'; cat out/digest-*.txt; echo '```'; } >> notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: notes.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            out/*
+            deploy/casaos/docker-compose.yml
+            deploy/compose/docker-compose.yml
+            deploy/compose/.env.example

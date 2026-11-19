@@ -1,0 +1,13 @@
+# Optional direct HTTPS (only if nothing else on this host uses ports 80/443): Caddy gets and renews
+# a certificate for your domain and forwards to Noteboard. Run it next to Noteboard, e.g.
+#   docker run -d --name noteboard-tls --restart unless-stopped -p 80:80 -p 443:443 --add-host host.docker.internal:host-gateway \
+#     -v $PWD/Caddyfile.direct-https:/etc/caddy/Caddyfile:ro -v noteboard-caddy:/data caddy:2
+# and set APP_PUBLIC_URL=https://notes.example.com in Noteboard.
+notes.example.com {
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy host.docker.internal:8765 {
+		header_up X-Forwarded-Proto https
+	}
+}

@@ -1,3 +1,4 @@
 # CUSTOM DOMAIN SETUP
 
-Kept together with related material in [DEPLOYMENT_AND_PLATFORMS.md](DEPLOYMENT_AND_PLATFORMS.md) so each topic has one source of truth.
+Cloudflare Tunnel, own reverse proxy / static IP, and LAN / Tailscale:
+[HOMELAB_EDITION.md §6](HOMELAB_EDITION.md) and [deploy/nginx](../../deploy/nginx/README.md).

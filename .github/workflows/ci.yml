@@ -38,5 +38,9 @@ jobs:
       - run: npm ci
       - run: npx nx run-many -t lint test
       - run: npx nx build web
+      - run: npx nx build api
+      - run: node --test --test-concurrency=1 apps/api/integration/
       - run: npx playwright test -c apps/web-e2e/playwright.config.mts
+      - run: npx playwright test -c apps/web-e2e/playwright.server.config.mts
+      - run: node ../deploy/scripts/render.mjs --check
       - run: npm audit --omit=dev

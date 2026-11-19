@@ -1,0 +1,10 @@
+# Everything the image builds need is the source; dependencies are installed inside the build.
+**/node_modules
+dist
+tmp
+coverage
+.nx
+.angular
+**/.vite
+**/*.log
+**/.env*

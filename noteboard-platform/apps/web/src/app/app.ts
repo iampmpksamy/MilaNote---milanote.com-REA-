@@ -1,11 +1,13 @@
 import { Component } from '@angular/core';
-import { IndexedDbStorage, MemoryStorage, STORAGE, WorkspaceView } from '@noteboard/ui-workspace';
+import { RouterOutlet } from '@angular/router';
 
-/** The web app: the shared workspace, keeping boards in this browser's IndexedDB. */
+/**
+ * The web app. With a Noteboard server behind it (the Homelab Edition) it signs people in and saves
+ * their boards to their account; served as plain files it keeps boards in this browser.
+ */
 @Component({
   selector: 'nb-root',
-  imports: [WorkspaceView],
-  template: '<nb-workspace />',
-  providers: [{ provide: STORAGE, useFactory: () => (typeof indexedDB !== 'undefined' ? new IndexedDbStorage('local') : new MemoryStorage()) }],
+  imports: [RouterOutlet],
+  template: '<router-outlet />',
 })
 export class App {}

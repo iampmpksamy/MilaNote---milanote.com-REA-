@@ -1,0 +1,444 @@
+// Sign-in, setup, account and admin pages. Same palette as the workspace (light, quiet, flat).
+:root {
+  --pg-bg: #eaebee;
+  --pg-card: #ffffff;
+  --pg-text: #2f3237;
+  --pg-muted: #868a92;
+  --pg-border: #dcdde0;
+  --pg-hover: #dfe0e4;
+  --pg-accent: #4378d6;
+  --pg-danger: #d94a38;
+  --pg-warn: #9a6a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --pg-bg: #1d1d1d;
+    --pg-card: #272727;
+    --pg-text: #e6e6e6;
+    --pg-muted: #929292;
+    --pg-border: #353535;
+    --pg-hover: #2e2e2e;
+    --pg-warn: #e0b24a;
+  }
+}
+
+nb-login-page,
+nb-setup-page,
+nb-invite-page,
+nb-reset-page,
+nb-forgot-page,
+nb-verify-page,
+nb-account-page,
+nb-admin-page {
+  display: block;
+  min-height: 100%;
+  background: var(--pg-bg);
+  color: var(--pg-text);
+  font: 14px/1.45 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow: auto;
+  position: fixed;
+  inset: 0;
+}
+
+.nb-auth {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  box-sizing: border-box;
+}
+.nb-auth-card {
+  width: min(420px, 100%);
+  background: var(--pg-card);
+  border: 1px solid var(--pg-border);
+  border-radius: 10px;
+  padding: 28px 28px 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  h1 {
+    font-size: 20px;
+    margin: 4px 0 14px;
+  }
+}
+.nb-auth-logo {
+  width: 34px;
+  height: 34px;
+  circle {
+    fill: var(--pg-text);
+  }
+  rect,
+  path {
+    fill: var(--pg-card);
+  }
+}
+.nb-auth-app {
+  margin: 4px 0 0;
+  color: var(--pg-muted);
+  font-weight: 600;
+}
+
+.nb-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 18px 20px 60px;
+  &.wide {
+    max-width: 1240px;
+  }
+}
+.nb-page-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  h1 {
+    font-size: 20px;
+    margin: 0 0 0 6px;
+  }
+}
+.nb-spacer {
+  flex: 1;
+}
+.nb-panel {
+  background: var(--pg-card);
+  border: 1px solid var(--pg-border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  h2 {
+    font-size: 16px;
+    margin: 4px 0 10px;
+  }
+  h3 {
+    font-size: 14px;
+    margin: 16px 0 6px;
+  }
+}
+
+nb-login-page,
+nb-setup-page,
+nb-invite-page,
+nb-reset-page,
+nb-forgot-page,
+nb-account-page,
+nb-admin-page {
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 10px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  label.nb-check {
+    flex-direction: row;
+    align-items: center;
+    font-weight: 400;
+  }
+  input:not([type='checkbox']):not([type='color']),
+  select {
+    font: inherit;
+    padding: 7px 9px;
+    border: 1px solid var(--pg-border);
+    border-radius: 6px;
+    background: var(--pg-card);
+    color: var(--pg-text);
+    min-width: 0;
+    &:focus {
+      outline: 2px solid var(--pg-accent);
+      outline-offset: -1px;
+    }
+  }
+  code {
+    font-size: 12px;
+    background: var(--pg-hover);
+    padding: 1px 4px;
+    border-radius: 4px;
+    word-break: break-all;
+  }
+}
+
+.nb-btn {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--pg-border);
+  border-radius: 6px;
+  background: var(--pg-card);
+  color: var(--pg-text);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  &:hover {
+    background: var(--pg-hover);
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+  &.primary {
+    background: var(--pg-accent);
+    border-color: var(--pg-accent);
+    color: #fff;
+    &:hover {
+      filter: brightness(1.07);
+    }
+  }
+  &.danger {
+    color: var(--pg-danger);
+  }
+  &.wide {
+    width: 100%;
+  }
+  &.small {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+  &.link {
+    border: 0;
+    background: none;
+    color: var(--pg-accent);
+    padding: 0;
+  }
+}
+.nb-muted {
+  color: var(--pg-muted);
+}
+.small {
+  font-size: 12.5px;
+}
+.nb-error {
+  color: var(--pg-danger);
+  margin: 6px 0 10px;
+}
+.nb-warn {
+  color: var(--pg-warn);
+}
+.nb-notice {
+  background: var(--pg-card);
+  border-left: 3px solid var(--pg-accent);
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+.nb-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  label {
+    margin: 0;
+  }
+}
+.nb-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+.nb-checks {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 14px;
+  li {
+    padding: 3px 0;
+    font-size: 13px;
+    span {
+      color: #2a8a4a;
+      font-weight: 700;
+    }
+    &.bad span,
+    &.bad {
+      color: var(--pg-danger);
+    }
+  }
+}
+.nb-codes {
+  background: var(--pg-hover);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 15px;
+  columns: 2;
+}
+.nb-qr {
+  display: block;
+  margin: 8px auto;
+  image-rendering: pixelated;
+  background: #fff;
+  border-radius: 6px;
+}
+.nb-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--pg-border);
+  margin-bottom: 12px;
+  overflow-x: auto;
+  button {
+    font: inherit;
+    border: 0;
+    background: none;
+    color: var(--pg-muted);
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    &.on {
+      color: var(--pg-text);
+      border-bottom-color: var(--pg-accent);
+      font-weight: 600;
+    }
+  }
+}
+.nb-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  div {
+    background: var(--pg-card);
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  b {
+    font-size: 22px;
+  }
+  span {
+    color: var(--pg-muted);
+    font-size: 12.5px;
+  }
+}
+.nb-facts {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 6px 14px;
+  background: var(--pg-card);
+  border: 1px solid var(--pg-border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  dt {
+    color: var(--pg-muted);
+  }
+  dd {
+    margin: 0;
+  }
+}
+.nb-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--pg-card);
+  border: 1px solid var(--pg-border);
+  border-radius: 8px;
+  font-size: 13px;
+  th,
+  td {
+    text-align: left;
+    padding: 7px 9px;
+    border-bottom: 1px solid var(--pg-border);
+    vertical-align: top;
+  }
+  th {
+    color: var(--pg-muted);
+    font-weight: 600;
+  }
+  td.bad {
+    color: var(--pg-danger);
+  }
+  .nb-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+.nb-search {
+  margin: 8px 0;
+  width: min(360px, 100%);
+}
+.nb-linkbox {
+  background: var(--pg-card);
+  border: 1px solid var(--pg-accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  p {
+    width: 100%;
+    margin: 0;
+  }
+  input {
+    flex: 1;
+    min-width: 260px;
+    font-family: Consolas, monospace !important;
+  }
+}
+.nb-settings h2 {
+  margin-top: 18px;
+}
+
+// Inside the workspace header.
+.nb-account {
+  position: relative;
+  margin-left: 4px;
+}
+.nb-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: #4a4f59;
+  color: #fff;
+  font: 600 11px 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer;
+}
+.nb-account-menu {
+  position: absolute;
+  right: 0;
+  top: 34px;
+  z-index: 60;
+  min-width: 200px;
+  background: var(--nb-popup, #fff);
+  color: var(--nb-text, #2f3237);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+  font: 13px 'Segoe UI', system-ui, sans-serif;
+  p {
+    margin: 4px 8px 8px;
+  }
+  a,
+  button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 8px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    border-radius: 5px;
+    cursor: pointer;
+    &:hover {
+      background: var(--nb-hover, #dfe0e4);
+    }
+  }
+}
+.nb-banner {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  top: 52px;
+  transform: translateX(-50%);
+  background: #fff4d6;
+  color: #5a4300;
+  border: 1px solid #e9d78c;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: 13px 'Segoe UI', system-ui, sans-serif;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}

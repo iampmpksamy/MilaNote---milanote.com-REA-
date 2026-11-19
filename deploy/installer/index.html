@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Works offline from a file: nothing you type leaves this page. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'" />
+<title>Noteboard — settings before installing</title>
+<style>
+  :root { --bg:#eaebee; --card:#fff; --text:#2f3237; --muted:#868a92; --border:#dcdde0; --accent:#4378d6; --bad:#d94a38; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1d1d1d; --card:#272727; --text:#e6e6e6; --muted:#929292; --border:#353535; } }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 'Segoe UI', system-ui, sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:20px; display:grid; grid-template-columns: 420px 1fr; gap:18px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:15px; margin:18px 0 8px; }
+  section { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  label { display:flex; flex-direction:column; gap:3px; font-weight:600; font-size:13px; margin:0 0 9px; }
+  label.check { flex-direction:row; align-items:center; gap:8px; font-weight:400; }
+  input, select { font:inherit; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--card); color:var(--text); }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap:0 10px; }
+  .muted { color:var(--muted); font-size:12.5px; font-weight:400; }
+  .bad { color:var(--bad); }
+  pre { background:var(--bg); border-radius:6px; padding:10px; overflow:auto; max-height:420px; font-size:12px; white-space:pre; }
+  .tabs button { font:inherit; border:1px solid var(--border); background:var(--card); color:var(--text); padding:6px 10px; border-radius:6px; cursor:pointer; }
+  .tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+  .actions button { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  .actions button.ghost { background:none; color:var(--accent); }
+  fieldset { border:0; padding:0; margin:0; } fieldset:disabled { opacity:.45; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Noteboard Homelab Edition</h1>
+    <p class="muted">Choose your settings, then copy or download the files. This page works offline and sends nothing anywhere. It never asks for passwords: the server makes its own secrets on first start.</p>
+    <form id="f" autocomplete="off">
+      <h2>App</h2>
+      <label>App name<input name="appName" /></label>
+      <label>Accent colour<input name="accent" type="color" /></label>
+      <h2>How people reach it</h2>
+      <label>Connection
+        <select name="connection">
+          <option value="cloudflare">Cloudflare Tunnel (my existing tunnel)</option>
+          <option value="proxy">My own reverse proxy / static IP with HTTPS</option>
+          <option value="lan">LAN or Tailscale only</option>
+        </select>
+      </label>
+      <label>Public address <span class="muted">(what people type; used in invitation links)</span><input name="publicUrl" placeholder="https://notes.example.com" /></label>
+      <div class="row">
+        <label>Host port<input name="port" type="number" min="1024" max="65535" /></label>
+        <label>Bind address<input name="bind" placeholder="0.0.0.0" /></label>
+      </div>
+      <p class="muted">0.0.0.0 = reachable on your network (Cloudflare origin http://&lt;server-ip&gt;:port); 127.0.0.1 = only from the server itself (a tunnel or proxy on the same machine).</p>
+      <h2>Storage and time</h2>
+      <label>Data folder <span class="muted">(local Linux disk such as ext4/XFS/Btrfs/ZFS; not a network share or NTFS)</span><input name="dataPath" /></label>
+      <label>Time zone<input name="tz" list="tzs" /></label>
+      <datalist id="tzs"></datalist>
+      <label>Maximum upload (MB)<input name="maxUploadMb" type="number" min="1" max="2048" /></label>
+      <label>Network range <span class="muted">(a free private /27 for the app's two internal networks)</span><input name="networkBase" placeholder="172.31.120.0" /></label>
+      <h2>Accounts</h2>
+      <label>New accounts
+        <select name="registration">
+          <option value="invite">By invitation only (recommended)</option>
+          <option value="approval">Sign-up with administrator approval</option>
+          <option value="open">Open sign-up</option>
+          <option value="closed">Closed</option>
+        </select>
+      </label>
+      <label>Admin panel path<input name="adminPath" /></label>
+      <h2>E-mail (optional)</h2>
+      <label class="check"><input type="checkbox" name="smtpEnabled" /> Send e-mail (invitations, resets, address checks)</label>
+      <fieldset id="smtp">
+        <div class="row">
+          <label>SMTP server<input name="smtpHost" placeholder="smtp.example.com" /></label>
+          <label>Port<input name="smtpPort" type="number" /></label>
+        </div>
+        <label>User<input name="smtpUser" /></label>
+        <label>From<input name="smtpFrom" placeholder="Noteboard &lt;notes@example.com&gt;" /></label>
+        <label class="check"><input type="checkbox" name="smtpSecure" /> TLS from the start (port 465)</label>
+        <p class="muted">Enter the SMTP password later in the admin panel; it is stored encrypted on the server.</p>
+      </fieldset>
+      <h2>Picture storage</h2>
+      <label class="check"><input type="checkbox" name="s3Enabled" /> Use an S3-compatible bucket instead of the local folder</label>
+      <fieldset id="s3">
+        <label>Endpoint<input name="s3Endpoint" placeholder="https://s3.example.com" /></label>
+        <div class="row">
+          <label>Bucket<input name="s3Bucket" /></label>
+          <label>Region<input name="s3Region" /></label>
+        </div>
+        <label>Access key<input name="s3AccessKey" /></label>
+        <p class="muted">Set S3_SECRET_KEY on the server after importing (CasaOS: app settings → noteboard-api → environment).</p>
+      </fieldset>
+      <h2>Backups</h2>
+      <div class="row">
+        <label>Daily at<input name="backupTime" type="time" /></label>
+        <label>Keep daily<input name="keepDaily" type="number" min="0" max="365" /></label>
+        <label>Keep weekly<input name="keepWeekly" type="number" min="0" max="365" /></label>
+        <label>Keep monthly<input name="keepMonthly" type="number" min="0" max="365" /></label>
+      </div>
+    </form>
+  </section>
+  <section>
+    <div id="problems" class="bad" role="alert"></div>
+    <div class="tabs" id="tabs">
+      <button data-t="casaos" class="on">CasaOS YAML</button>
+      <button data-t="compose">docker-compose.yml</button>
+      <button data-t="env">.env</button>
+      <button data-t="summary">Summary</button>
+      <button data-t="howto">Connection steps</button>
+    </div>
+    <div class="actions">
+      <button id="copy" type="button">Copy</button>
+      <button id="download" type="button" class="ghost">Download</button>
+    </div>
+    <pre id="out"></pre>
+    <p class="muted">CasaOS: App Store → <b>+</b> (top right) → <b>Install a customized app</b> → <b>Import</b> → paste the CasaOS YAML → <b>Submit</b> → <b>Install</b>. Portainer: Stacks → Add stack → paste the CasaOS YAML (it has the values written in) or the docker-compose.yml with the .env.</p>
+  </section>
+</main>
+<script src="compose.js"></script>
+<script>
+  (function () {
+    var G = window.NoteboardCompose, f = document.getElementById('f'), out = document.getElementById('out');
+    var tab = 'casaos', text = '', names = { casaos: 'noteboard-casaos.yml', compose: 'docker-compose.yml', env: '.env', summary: 'noteboard-summary.txt', howto: 'noteboard-connection-steps.txt' };
+    var urls = { cloudflare: 'https://notes.6dainas.cloud', proxy: 'https://notes.example.com', lan: 'http://10.0.0.2:8765' };
+    var zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['Asia/Kolkata', 'UTC', 'Europe/London', 'America/New_York']);
+    document.getElementById('tzs').innerHTML = zones.map(function (z) { return '<option value="' + z + '">'; }).join('');
+    for (var k in G.DEFAULTS) {
+      var el = f.elements[k];
+      if (!el) continue;
+      if (el.type === 'checkbox') el.checked = !!G.DEFAULTS[k]; else el.value = G.DEFAULTS[k];
+    }
+    function read() {
+      var o = {};
+      for (var k in G.DEFAULTS) {
+        var el = f.elements[k];
+        if (!el) continue;
+        o[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value.trim();
+      }
+      return o;
+    }
+    function update() {
+      var o = read();
+      document.getElementById('smtp').disabled = !o.smtpEnabled;
+      document.getElementById('s3').disabled = !o.s3Enabled;
+      var p = G.validate(o);
+      document.getElementById('problems').innerHTML = p.map(function (x) { return '<p>' + x.replace(/</g, '&lt;') + '</p>'; }).join('');
+      text = p.length ? '# Fix the problems above first.\n' :
+        tab === 'casaos' ? G.render(o, 'casaos') : tab === 'compose' ? G.render(o, 'compose') : tab === 'env' ? G.envFile(o) : tab === 'summary' ? G.summary(o) : G.instructions(o);
+      out.textContent = text;
+    }
+    f.addEventListener('input', update);
+    f.elements.connection.addEventListener('change', function () {
+      var c = f.elements.connection.value;
+      if (Object.values(urls).indexOf(f.elements.publicUrl.value) >= 0 || !f.elements.publicUrl.value) f.elements.publicUrl.value = urls[c];
+      update();
+    });
+    document.getElementById('tabs').addEventListener('click', function (e) {
+      var t = e.target.getAttribute('data-t');
+      if (!t) return;
+      tab = t;
+      [].forEach.call(this.children, function (b) { b.classList.toggle('on', b === e.target); });
+      update();
+    });
+    document.getElementById('copy').onclick = function () { navigator.clipboard && navigator.clipboard.writeText(text); };
+    document.getElementById('download').onclick = function () {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+      a.download = names[tab];
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    };
+    update();
+  })();
+</script>
+</body>
+</html>

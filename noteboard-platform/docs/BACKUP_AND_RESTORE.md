@@ -1,3 +1,4 @@
 # BACKUP AND RESTORE
 
-Kept together with related material in [DEPLOYMENT_AND_PLATFORMS.md](DEPLOYMENT_AND_PLATFORMS.md) so each topic has one source of truth.
+How backups work, retention, off-host copies and restore (including into a test instance):
+[deploy/backup/README.md](../../deploy/backup/README.md) and [HOMELAB_EDITION.md §8](HOMELAB_EDITION.md).

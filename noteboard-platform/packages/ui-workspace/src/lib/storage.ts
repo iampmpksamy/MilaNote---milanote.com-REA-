@@ -8,6 +8,8 @@ import { Prefs } from './prefs';
 
 export interface StorageAdapter {
   readonly label: string;
+  /** True when boards are saved to a server (the status then says so). */
+  readonly remote?: boolean;
   load(): Promise<{ store: Store | null; prefs: Prefs | null }>;
   saveStore(store: Store): Promise<void>;
   savePrefs(prefs: Prefs): Promise<void>;

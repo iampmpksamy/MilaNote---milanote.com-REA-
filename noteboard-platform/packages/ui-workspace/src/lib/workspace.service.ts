@@ -198,6 +198,10 @@ export class Workspace {
     return this.storage.label;
   }
 
+  get storageRemote(): boolean {
+    return !!this.storage.remote;
+  }
+
   /** Change the board data: takes an undo step (unless asked not to), then saves soon after. */
   change(f: (s: StoreWithImports, b: Board) => void, checkpoint = true): void {
     if (checkpoint) this.checkpoint();
@@ -442,7 +446,12 @@ export class Workspace {
     }
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
     const name = `${newId(this.data)}.${ext}`;
-    await this.storage.putImage(name, file);
+    try {
+      await this.storage.putImage(name, file);
+    } catch (e) {
+      this.showToast(`The picture couldn't be saved: ${(e as Error).message || 'unknown error'}`);
+      return;
+    }
     const width = Math.min(320, Math.max(120, dims.w));
     const at = 'at' in place ? { at: { x: place.at.x - width / 2, y: place.at.y - 80 } } : place;
     this.insert({ Image: { file: name, caption: '', aspect: dims.h / dims.w } }, width, at);

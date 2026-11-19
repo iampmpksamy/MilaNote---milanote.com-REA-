@@ -3,6 +3,25 @@
 Versions follow `MAJOR.MINOR.PATCH[-pre]`. Major 2 = the Rust desktop app, major 3 = the
 cross-platform platform; `-alpha.N` marks platform milestone N.
 
+## 3.0.0-alpha.2 — 2026-11-19 (Homelab Edition)
+
+- Self-hosted server: NestJS API (`apps/api`), background worker, MongoDB 8.0 replica set, Redis 8,
+  nginx gateway — one Docker Compose app, one CasaOS tile, only the gateway published (port 8765).
+- First-run setup wizard with a one-time token; built-in accounts (argon2id), sessions, CSRF, rate
+  limits, invitations and password links that work without e-mail, optional SMTP, two-step sign-in
+  (required for administrators), suspension, session revocation, console recovery.
+- Private workspaces saved to the server (per-board documents, revision check, "Saved to server"
+  status), pictures on the NAS (S3 optional), export, desktop and browser-local imports.
+- Admin panel at `/admin`: live overview, accounts, invitations, settings, branding, backups, audit
+  log, health. Administrators cannot open users' boards.
+- Automatic, idempotent initialisation (folders, owners, secrets, replica set, DB user, migrations).
+- Backups (daily/weekly/monthly retention, manual, pre-migration), console restore, restore-test script.
+- PWA (manifest, icons, service worker that never caches private data), discovery endpoint for clients.
+- Deployment: `deploy/` — CasaOS compose, Docker Compose + `.env`, offline settings generator,
+  nginx/Caddy examples, scripts; Dockerfiles; GitHub Actions image release (GHCR, SBOM, Trivy).
+- Tests: unit 49, API integration 21, browser 13 local + 6 server (also run against a real install on
+  the home lab), Rust 18.
+
 ## 3.0.0-alpha.1 — 2026-11-19 (platform Milestone 1)
 
 - New `noteboard-platform/` Nx monorepo (Angular 22): shared board-model, canvas-geometry and
