@@ -1,0 +1,51 @@
+# Noteboard for Windows (Tauri v2): NSIS setup .exe and .msi, built on a Windows runner.
+# Unsigned until a code-signing certificate is configured (Windows SmartScreen will warn).
+name: native-windows
+
+on:
+  push:
+    tags: ['v3.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: noteboard-platform
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: noteboard-platform/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: noteboard-platform/apps/desktop/src-tauri
+      - run: npm ci --no-audit --no-fund
+      - run: npx nx build web -c native --output-style=static
+      - run: npx tauri build
+        working-directory: noteboard-platform/apps/desktop
+      - name: Collect files and checksums
+        run: |
+          v=$(node -p "require('./package.json').version")
+          b=apps/desktop/src-tauri/target/release/bundle
+          mkdir -p out
+          cp $b/nsis/*.exe "out/Noteboard-$v-windows-x64-setup.exe"
+          cp $b/msi/*.msi "out/Noteboard-$v-windows-x64.msi"
+          (cd out && sha256sum * > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: noteboard-windows
+          path: noteboard-platform/out/*
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: noteboard-platform/out/*
+          prerelease: ${{ contains(github.ref_name, '-') }}

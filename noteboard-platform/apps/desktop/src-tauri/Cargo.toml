@@ -1,0 +1,37 @@
+[package]
+name = "noteboard-desktop"
+version = "3.0.0-alpha.4"
+description = "Noteboard for Windows: the shared web app in a native window, connected to your own Noteboard server"
+authors = ["Noteboard"]
+license = "UNLICENSED"
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "noteboard_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.7", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-opener = "2.7.3"
+tauri-plugin-notification = "2.8.1"
+tauri-plugin-window-state = "2.5.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+base64 = "0.23.1"
+# Sign-in tokens: Windows Credential Manager (DPAPI-protected, per Windows user).
+keyring = "4.2.0"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2.5.5"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

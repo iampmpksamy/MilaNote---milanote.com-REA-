@@ -42,5 +42,8 @@ jobs:
       - run: node --test --test-concurrency=1 apps/api/integration/
       - run: npx playwright test -c apps/web-e2e/playwright.config.mts
       - run: npx playwright test -c apps/web-e2e/playwright.server.config.mts
+      # The Android/iOS app bundle (development build) against a test server, in mobile emulation.
+      - run: npx nx build web -c native-dev
+      - run: npx playwright test -c apps/web-e2e/playwright.native.config.mts
       - run: node ../deploy/scripts/render.mjs --check
       - run: npm audit --omit=dev

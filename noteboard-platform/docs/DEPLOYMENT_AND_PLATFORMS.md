@@ -1,8 +1,18 @@
-# Deployment, custom domains, backups and platform builds — designed (Milestones 3–4)
+# Deployment, custom domains, backups and platform builds
 
-This file holds DOCKER_DEPLOYMENT, CUSTOM_DOMAIN_SETUP, BACKUP_AND_RESTORE and the Windows,
-Android and iOS build guides (the separate file names point here). None of it is built yet; Docker
-isn't installed on the machine used for Milestone 1, so nothing here has been run.
+The Docker/CasaOS deployment that was built is described in [HOMELAB_EDITION.md](HOMELAB_EDITION.md)
+and `../deploy`; the sections on Docker, domains and backups below are the original Milestone 1 plan,
+kept for reference. The native apps have their own guides (3.0.0-alpha.4):
+
+| Platform | Guide | Status |
+| --- | --- | --- |
+| Android phones and tablets | [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md) | debug APK built and tested in emulation |
+| Windows 10/11 | [WINDOWS_BUILD_GUIDE.md](WINDOWS_BUILD_GUIDE.md) | app compiles; installers built by CI/Windows |
+| iPhone and iPad | [IOS_BUILD_GUIDE.md](IOS_BUILD_GUIDE.md) | project prepared; needs macOS |
+
+How the apps connect and sign in: [SERVER_DISCOVERY.md](SERVER_DISCOVERY.md),
+[NATIVE_AUTHENTICATION.md](NATIVE_AUTHENTICATION.md); touch: [MOBILE_GESTURES.md](MOBILE_GESTURES.md);
+saving and offline: [OFFLINE_SYNC.md](OFFLINE_SYNC.md).
 
 ## Docker Compose (planned)
 
@@ -48,22 +58,9 @@ Nightly worker job: `mongodump --archive --gzip` + object-store sync + Redis RDB
 worker, restore archive into a fresh database, verify counts, start. A restore test runs in CI on a
 throwaway stack. Admin panel shows last backup time and size.
 
-## Windows desktop (Tauri v2, planned)
+## Native apps
 
-Prerequisites: Rust stable (present), WebView2 (present on Windows 11), `@tauri-apps/cli` 2.12.
-`apps/desktop` wraps the same Angular build; capabilities limited to dialog (open file), clipboard
-(read image/text), notification, store (SQLite), updater, and a custom `credentials` command backed
-by Windows Credential Manager. Navigation restricted to the app origin. Packaging: MSI + NSIS;
-signing needs a code-signing certificate (not available yet); updates signed with a Tauri key.
-
-## Android (Ionic + Capacitor 8, planned)
-
-Prerequisites not yet on this machine: Android Studio, SDK 35+, JDK 21. `npx cap add android`,
-debug APK via Gradle; signed AAB needs the person's upload key. Gestures: pinch-zoom, two-finger pan,
-long-press to pick up a card.
-
-## iOS / iPadOS (planned)
-
-Needs a Mac with Xcode, an Apple developer account and signing certificates. The project can be
-generated here (`npx cap add ios`) but **cannot be built or tested on Windows**; no iOS build will be
-claimed until one succeeds on a Mac.
+Built in 3.0.0-alpha.4 — see the guides linked at the top. Differences from the original plan:
+Ionic UI components were not added (the apps use Noteboard's own design system with a phone layout;
+Capacitor provides the native layer), and the Windows app stores tokens with the `keyring` crate
+(Credential Manager) instead of a SQLite store; offline storage comes with the offline milestone.

@@ -1,0 +1,70 @@
+# Noteboard for Android: debug APK on every version tag (and by hand); a signed release APK + AAB
+# only when the signing secrets exist (NB_ANDROID_KEYSTORE_B64, NB_ANDROID_KEYSTORE_PASSWORD,
+# NB_ANDROID_KEY_ALIAS, NB_ANDROID_KEY_PASSWORD). The keystore never enters the repository.
+name: native-android
+
+on:
+  push:
+    tags: ['v3.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      HAS_SIGNING: ${{ secrets.NB_ANDROID_KEYSTORE_B64 != '' }}
+    defaults:
+      run:
+        working-directory: noteboard-platform
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: noteboard-platform/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --no-audit --no-fund
+      - run: npx nx build web -c native --output-style=static
+      - run: npx cap sync android
+        working-directory: noteboard-platform/apps/mobile
+      - name: Debug APK
+        working-directory: noteboard-platform/apps/mobile/android
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Signed release APK and AAB (only with signing secrets)
+        if: env.HAS_SIGNING == 'true'
+        env:
+          NB_ANDROID_KEYSTORE_B64: ${{ secrets.NB_ANDROID_KEYSTORE_B64 }}
+          NB_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.NB_ANDROID_KEYSTORE_PASSWORD }}
+          NB_ANDROID_KEY_ALIAS: ${{ secrets.NB_ANDROID_KEY_ALIAS }}
+          NB_ANDROID_KEY_PASSWORD: ${{ secrets.NB_ANDROID_KEY_PASSWORD }}
+        working-directory: noteboard-platform/apps/mobile/android
+        run: |
+          echo "$NB_ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          export NB_ANDROID_KEYSTORE="$RUNNER_TEMP/upload.jks"
+          ./gradlew --no-daemon assembleRelease bundleRelease
+          rm -f "$RUNNER_TEMP/upload.jks"
+      - name: Collect files and checksums
+        run: |
+          v=$(node -p "require('./package.json').version")
+          mkdir -p out
+          cp apps/mobile/android/app/build/outputs/apk/debug/*.apk "out/Noteboard-$v-android-debug.apk"
+          if ls apps/mobile/android/app/build/outputs/apk/release/*.apk >/dev/null 2>&1; then cp apps/mobile/android/app/build/outputs/apk/release/*.apk "out/Noteboard-$v-android.apk"; fi
+          if ls apps/mobile/android/app/build/outputs/bundle/release/*.aab >/dev/null 2>&1; then cp apps/mobile/android/app/build/outputs/bundle/release/*.aab "out/Noteboard-$v-android.aab"; fi
+          (cd out && sha256sum * > SHA256SUMS-android.txt && cat SHA256SUMS-android.txt)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: noteboard-android
+          path: noteboard-platform/out/*
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: noteboard-platform/out/*
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: false

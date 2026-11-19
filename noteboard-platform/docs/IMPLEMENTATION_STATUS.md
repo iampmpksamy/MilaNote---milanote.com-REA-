@@ -12,7 +12,7 @@ exists, no automated test · **Designed** docs only · **Deferred**.
 | 0 Audit and preservation | Done (MIGRATION_PLAN.md) |
 | 1 Monorepo, shared canvas, web interface | **Done** (3.0.0-alpha.1) |
 | 2+3 Homelab Edition: NestJS, MongoDB, Redis, accounts, admin, Docker, CasaOS, PWA | **Done** (3.0.0-alpha.2) — see below and [HOMELAB_EDITION.md](HOMELAB_EDITION.md) |
-| 4 Windows (Tauri), Android/iOS (Capacitor), sync | Designed (not built; no native installers exist) |
+| 4 Windows (Tauri), Android/iOS (Capacitor), sync | **In progress** (3.0.0-alpha.4): native sign-in, server choice, reliable saving, touch UI, Android debug APK built; Windows app compiles (installers need Windows); iOS project prepared (needs macOS); offline editing is the next step — see below |
 | 5 Reliability, security hardening, release | Not started |
 
 ## Homelab Edition (3.0.0-alpha.2) — tests run on 2026-11-19
@@ -61,6 +61,72 @@ all services came back healthy (setup still waiting for the owner).
 
 Not done / needs your access: the Cloudflare hostname; a host reboot test; the CasaOS dashboard view;
 S3 against a real bucket; ARM64.
+
+## Native apps (3.0.0-alpha.4) — built and tested on the home lab, 2026-11-19
+
+Where: home lab (Ubuntu 24.04, Node 22.23.5, JDK 21, Android SDK 36, Rust 1.97.1, Chrome via
+Playwright 1.65). The repository there was first fast-forwarded to `e97b7bd` (the old Windows working
+copy saved as a git stash and in `sync-backup-20261119/`).
+
+### Builds
+
+| Artifact | Status | Where |
+| --- | --- | --- |
+| Android debug APK | **Built** (4.5 MB, versionCode 30000004, cleartext off, backups off) | `apps/mobile/android/app/build/outputs/apk/debug/Noteboard-3.0.0-alpha.4-android-debug.apk` |
+| Android signed APK/AAB | Not built (no upload key yet) | `native-android.yml` builds them when the signing secrets exist |
+| Windows app | **Compiles and starts** on Linux (`cargo build`, `tauri build --no-bundle`; shows the bundled connect screen under Xvfb) | `apps/desktop` |
+| Windows setup EXE / MSI | **Not built** — needs Windows (NSIS/WiX, WebView2). `native-windows.yml` builds them on `windows-latest` | — |
+| iOS / iPadOS | Project generated and configured; **not compiled** (needs macOS/Xcode). `native-ios.yml` compiles it unsigned on `macos-15` | `apps/mobile/ios` |
+
+### Test results
+
+| Suite | Result |
+| --- | --- |
+| Rust desktop app (legacy baseline) | 18 / 18 pass |
+| Unit and component (Vitest) | 49 / 49 pass |
+| API integration (`apps/api/integration`, now 2 files) | **36 / 36** pass (21 earlier + 15 native sign-in/saving) |
+| Browser, local mode | 13 / 13 pass (Chrome on Linux; Edge on Windows CI) |
+| Browser, server mode (dev stack) | 6 / 6 pass |
+| **Native app bundle** (`apps/web-e2e/native`, Pixel 7 emulation, real touch events, cross-origin bearer tokens against a separate dev server) | **10 / 10 pass** |
+| Lint (7 projects) | 0 errors |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+
+What the native suite covers: first-launch server choice with the suggested address, invalid and
+unreachable addresses, the development http warning; invitation pasted into the app (and refused for
+another server); no session cookies; tap-to-create, typing, one-finger drag, pinch zoom, pan, long
+press → bottom-sheet menu, Back button; picture upload shown through the token; reopening keeps the
+sign-in (refresh token); the same boards in a normal browser (cross-device); saves failing while
+offline are kept and sent later; sign-out; a second account with two-step sign-in sees only its own
+boards; remembered servers/accounts and an unreachable server; screenshots (`shots/native-alpha4/`)
+for phone portrait/landscape, Android tablet, iPhone, iPad, dark theme and large interface size with
+no sideways scrolling.
+
+Bugs found by these tests and fixed: the CORS preflight didn't allow the app's `X-Noteboard-App`
+header; an expired access token blocked its own refresh; `notes example` (with a space) was accepted
+as an address.
+
+### Not verified (honest list)
+
+- **No physical phone, emulator, Mac or Windows run.** The Android APK has not been installed
+  anywhere; the home lab has no KVM, so no emulator. The browser-emulation tests use the plugins' web
+  implementations: Android Keystore, iOS Keychain, the share-in plugin, haptics, the status bar and
+  the Back button are only exercised on a device.
+- Windows Credential Manager, installers, WebView2 drag-and-drop/paste and high-DPI behaviour.
+- iOS compile, signing, devices.
+- The live server (notes.6dainas.cloud) still runs 3.0.0-alpha.3, which has no native sign-in; the
+  apps say "too old" until it is upgraded to 3.0.0-alpha.4. Production data was not touched.
+
+### Checklist for the first phone test (test account, not production data)
+
+1. Install the APK, open it: the connect screen suggests `https://notes.6dainas.cloud`.
+2. Test connection → name and version (needs the server on 3.0.0-alpha.4), Save.
+3. Paste an invitation link for a test account → create the account → boards appear.
+4. Create a note, drag it, pinch, long-press a card, rotate the phone, open the keyboard.
+5. Add a photo from the gallery and from the camera; share a link from Chrome to Noteboard.
+6. Airplane mode → edit → banner; back online → "Saved".
+7. Close and reopen the app (still signed in); open the boards in a browser (same content).
+8. Account page in the browser → *Signed-in devices* lists "Noteboard Android 3.0.0-alpha.4" →
+   *Sign out* → the phone asks to sign in again.
 
 ## Feature parity: Rust V2 → web (Milestone 1)
 
@@ -122,8 +188,26 @@ those parts don't exist yet. Browser tests ran in Edge only (Firefox/Safari not 
 5. Unused template dependencies (`@angular/ssr`, `express`, `@angular/platform-server`) are still in
    package.json; to be removed when the API is added.
 6. Rust V2: Linux-only `quick-xml` advisory (see MIGRATION_PLAN.md).
+7. Native apps (alpha.4): no offline editing yet — the server must be reachable to open boards;
+   unsent changes are kept and retried (OFFLINE_SYNC.md).
+8. Native apps need a server on 3.0.0-alpha.4 or newer (native sign-in).
+9. The sample board for new accounts still says "Double-click", "Ctrl + scroll" (desktop wording)
+   on phones too.
+10. iOS: no share-to-Noteboard yet (needs a Share Extension and signing); no build exists yet.
+11. Windows installers are unsigned (SmartScreen warning) until a code-signing certificate exists.
+12. Invitation and password links open in the browser; in the apps they are pasted on the sign-in
+    screen (no Android App Links / iOS Universal Links yet — they need files on the server domain and
+    signing).
+13. The Admin panel opens in the system browser from the apps.
 
 ## Changelog
+
+### Platform 3.0.0-alpha.4 (2026-11-19) — native apps, part 1
+- Native sign-in for apps (bearer tokens, rotation, reuse detection, CORS for app origins only);
+  browser cookies/CSRF unchanged. Idempotent saves.
+- Server choice, accounts per server, reliable saving with drafts and retries, touch gestures and
+  phone layout (shared by browser and apps).
+- Android Capacitor project and debug APK; Windows Tauri project; iOS Capacitor project; CI workflows.
 
 ### Platform M1 (2026-11-19)
 - New Nx workspace `noteboard-platform` (inside `app/` because the builder may only write there).

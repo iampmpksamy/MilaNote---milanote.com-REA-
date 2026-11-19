@@ -4,7 +4,7 @@ The cross-platform successor to the Noteboard desktop app (the Rust/egui app one
 unchanged and tagged `v2-rust-baseline` in Git). One Angular workspace, shared by every client, and
 now a self-hosted server.
 
-**Status: 3.0.0-alpha.3 — Homelab Edition.** The web app runs in two modes:
+**Status: 3.0.0-alpha.4 — Homelab Edition + native apps (part 1).** The web app runs in two modes:
 
 - **Server mode** (Homelab Edition): served by the `noteboard-gateway` image in front of the NestJS
   API, with accounts, private boards saved to MongoDB, pictures on the NAS, `/admin`, backups and an
@@ -12,8 +12,11 @@ now a self-hosted server.
   [docs/HOMELAB_EDITION.md](docs/HOMELAB_EDITION.md).
 - **Local mode** (Milestone 1): served as plain files, it keeps boards in this browser (IndexedDB).
 
-Desktop (Tauri), Android/iOS (Capacitor), offline sync and real-time collaboration are designed but
-not built. Test evidence: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+Native apps (3.0.0-alpha.4): Android (Capacitor, debug APK built), Windows (Tauri, installers built
+on Windows/CI) and iPhone/iPad (Capacitor, needs macOS) share the same bundled UI and connect to the
+server you choose — [docs/ANDROID_BUILD_GUIDE.md](docs/ANDROID_BUILD_GUIDE.md),
+[docs/WINDOWS_BUILD_GUIDE.md](docs/WINDOWS_BUILD_GUIDE.md), [docs/IOS_BUILD_GUIDE.md](docs/IOS_BUILD_GUIDE.md).
+Offline editing and real-time collaboration are designed, not built ([docs/OFFLINE_SYNC.md](docs/OFFLINE_SYNC.md)). Test evidence: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## Layout
 
@@ -23,7 +26,10 @@ apps/
                     Dockerfile + gateway/ (nginx) = the noteboard-gateway image
   api/              NestJS API, worker, init and console tools (one image: noteboard-server);
                     src/ (server), integration/ (HTTP tests), build.mjs (esbuild bundle)
-  web-e2e/          Playwright tests in Microsoft Edge: src/ (local mode), server/ (server mode)
+  web-e2e/          Playwright tests: src/ (local mode), server/ (server mode), native/ (the app
+                    bundle in mobile emulation); NB_CHANNEL=chrome runs them where Edge isn't installed
+  mobile/           Capacitor 8: android/ (Gradle project), ios/ (Xcode project), capacitor.config.ts
+  desktop/          Tauri v2 Windows app: src-tauri/ (Rust commands, config, icons)
 packages/
   board-model/      Board data model (same format as the desktop boards.json), operations,
                     desktop importer, safe note formatting. Used by the web app and the server.
@@ -48,6 +54,10 @@ docs/               Architecture, Homelab Edition, migration plan, designs for l
 | Browser tests, server mode | `npx nx build web && npx nx build api && npx playwright test -c apps/web-e2e/playwright.server.config.mts` |
 | … against a real install | add `NB_BASE_URL=http://host:port NB_SETUP_TOKEN=…` (fresh instance) |
 | Run everything locally without Docker | build both, then `node tools/dev-stack.mjs 4322` → http://127.0.0.1:4322 |
+| Native app bundle (apps) | `npx nx build web -c native` (release) / `-c native-dev` (allows http with a warning) |
+| Android debug APK | `npx nx run mobile:apk-debug` → `apps/mobile/android/app/build/outputs/apk/debug/` |
+| Windows installers (on Windows) | `npx nx build web -c native && cd apps/desktop && npx tauri build` |
+| Native app tests (mobile emulation) | `npx nx build web -c native-dev && npx nx build api && npx playwright test -c apps/web-e2e/playwright.native.config.mts` |
 | Docker images | `docker build -f apps/api/Dockerfile -t noteboard-server .` and `-f apps/web/Dockerfile -t noteboard-gateway .` |
 
 Versions validated together on 2026-11-19: Node 26.13, npm 11.20, Nx 24.0, Angular 22.2, NestJS 12.5,

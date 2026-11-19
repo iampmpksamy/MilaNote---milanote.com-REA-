@@ -1,0 +1,47 @@
+# Noteboard for iPhone and iPad: compiles the Capacitor iOS project on macOS (simulator build,
+# no signing). With Apple signing secrets (see docs/IOS_BUILD_GUIDE.md) a signed archive and IPA
+# can be produced later; until then no IPA or TestFlight build exists.
+name: native-ios
+
+on:
+  push:
+    tags: ['v3.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: noteboard-platform
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: noteboard-platform/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx nx build web -c native --output-style=static
+      - run: npx cap sync ios
+        working-directory: noteboard-platform/apps/mobile
+      - name: Build for the iOS Simulator (unsigned)
+        working-directory: noteboard-platform/apps/mobile/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -40
+      - name: Build for devices (unsigned, proves it compiles for arm64 iPhone/iPad)
+        working-directory: noteboard-platform/apps/mobile/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build | tail -40
+      - uses: actions/upload-artifact@v7
+        with:
+          name: noteboard-ios-build-log
+          path: noteboard-platform/apps/mobile/ios/App/build/Logs
+          if-no-files-found: ignore

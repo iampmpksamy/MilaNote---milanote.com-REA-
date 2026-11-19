@@ -3,6 +3,27 @@
 Versions follow `MAJOR.MINOR.PATCH[-pre]`. Major 2 = the Rust desktop app, major 3 = the
 cross-platform platform; `-alpha.N` marks platform milestone N.
 
+## 3.0.0-alpha.4 — 2026-11-19 (native apps, part 1)
+
+- **Server:** native sign-in for the apps — `X-Noteboard-Client: native` + bearer tokens (15-minute
+  access, rotating 30-day refresh, reuse ends the session), cookies ignored on app requests, CORS for
+  the app origins only (`NATIVE_ORIGINS`), app sessions listed and revocable on the account page;
+  idempotent saves (operation ids); discovery advertises `native.auth`. No database schema change.
+- **All clients:** reliable saving — unsent changes kept on the device until confirmed, retries with
+  backoff, conflict banner with "save my unsent changes as a file", no saving after a failed load.
+- **Apps:** server choice (suggested `https://notes.6dainas.cloud`, editable, several servers and
+  accounts, http only in development builds with a warning), invitation/password links pasted in the
+  app, touch gestures (drag, pinch, pan, long press, double tap), phone layout (bottom tools, sheets),
+  Android Back button, native clipboard, share-to-Noteboard on Android, original icons.
+- **Android:** Capacitor 8 project `noteboard-platform/apps/mobile` (`com.pmpksamy.noteboard`),
+  Keystore token storage, HTTPS-only network config, no backups; debug APK built.
+- **Windows:** Tauri v2 project `noteboard-platform/apps/desktop` (Credential Manager tokens, save
+  dialog, single instance, remembered window); installers built on Windows/CI.
+- **iOS/iPadOS:** Capacitor project with privacy texts and Keychain storage; compiled by CI on macOS.
+- **CI:** `native-android.yml`, `native-windows.yml`, `native-ios.yml`; CI runs the native app tests.
+- **Tests:** API integration 36 (15 new), native app browser tests 10 (new), all earlier suites pass.
+- Requires the server to be 3.0.0-alpha.4 for the apps; browsers work as before.
+
 ## 3.0.0-alpha.3 — 2026-11-19 (Homelab Edition, hardened images)
 
 - Server image: Node 26.13.1 binary on a fully updated Alpine 3.24 without npm/yarn/corepack (removes
