@@ -4,9 +4,9 @@ import { BOARD_ICON, Pt, Rect, align, contains, distToSegment, fromTwo, intersec
 import { Tool, UNAVAILABLE, Workspace } from './workspace.service';
 
 type Gesture =
-  | { kind: 'card'; id: CardId; start: Pt; moved: boolean; ids: CardId[]; offsets: Map<CardId, Pt> }
+  | { kind: 'card'; id: CardId; start: Pt; moved: boolean; ids: CardId[]; offsets: Map<CardId, Pt>; touch?: boolean; wasSelected?: boolean }
   | { kind: 'band'; start: Pt; additive: boolean; base: ReadonlySet<CardId> }
-  | { kind: 'pan'; last: Pt }
+  | { kind: 'pan'; last: Pt; start?: Pt; moved?: boolean }
   | { kind: 'resize'; id: CardId; startX: number; width: number }
   | { kind: 'connect'; from: CardId }
   | { kind: 'end'; arrow: number; end: 0 | 1 }
@@ -24,6 +24,18 @@ export class CanvasControl {
   ghost: { x: number; y: number; label: string } | null = null;
   connectLine: [Pt, Pt] | null = null;
   hoverTarget: CardId | null = null;
+
+  // ---------- touch state ----------
+  /** Fingers on the screen (client coordinates). */
+  private readonly touches = new Map<number, Pt>();
+  private pinch: { dist: number; mid: Pt } | null = null;
+  private longTimer: ReturnType<typeof setTimeout> | null = null;
+  private longFired = false;
+  private touchStart: Pt | null = null;
+  private lastTap: { t: number; x: number; y: number } | null = null;
+  private lastTouchAt = 0;
+  /** Called when a long press opens a menu (the apps vibrate briefly). */
+  onLongPress?: () => void;
 
   constructor(
     private readonly ws: Workspace,
@@ -121,10 +133,140 @@ export class CanvasControl {
     return null;
   }
 
+
+  // ---------- touch ----------
+  //
+  // One finger: drag a card, or pan the board on empty space. Two fingers: pinch to zoom and move.
+  // Long press: the context menu. Tap a selected card again (or double-tap): edit it / open a board.
+
+  private static readonly SLOP = 8;
+  private static readonly LONG_MS = 500;
+
+  private cancelLong(): void {
+    if (this.longTimer) clearTimeout(this.longTimer);
+    this.longTimer = null;
+  }
+
+  /** Handles a finger going down; false when the normal pointer code should carry on. */
+  private touchDown(e: PointerEvent): boolean {
+    this.lastTouchAt = Date.now();
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.touches.size >= 2) {
+      this.cancelLong();
+      const g = this.gesture;
+      // A card already being dragged keeps going; anything else turns into a pinch.
+      if (g?.kind === 'card' && g.moved) return true;
+      if (g?.kind === 'band') this.band = null;
+      this.gesture = null;
+      const [a, b] = [...this.touches.values()];
+      this.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: this.local({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }) };
+      return true;
+    }
+    this.pinch = null;
+    this.longFired = false;
+    this.touchStart = { x: e.clientX, y: e.clientY };
+    const target = e.target as HTMLElement;
+    this.cancelLong();
+    if (!target.closest('[data-handle], .nb-float, .nb-drawer') && !(this.ws.editing() !== null && isField(target))) {
+      this.longTimer = setTimeout(() => {
+        this.longTimer = null;
+        if (this.touches.size !== 1 || (this.gesture?.kind === 'card' && this.gesture.moved)) return;
+        this.longFired = true;
+        this.gesture = null;
+        this.band = null;
+        const at = this.touchStart!;
+        const el = (document.elementFromPoint(at.x, at.y) as HTMLElement | null) ?? target;
+        this.contextmenu({ target: el, clientX: at.x, clientY: at.y, preventDefault: () => undefined } as unknown as MouseEvent);
+        this.onLongPress?.();
+        this.redraw();
+      }, CanvasControl.LONG_MS);
+    }
+    // Empty board space: one finger pans (a selection box needs a mouse or a long press menu).
+    if (target.closest('.nb-canvas') && !target.closest('nb-card-view, [data-handle], .nb-float') && this.arrowAt(this.world(e)) === null) {
+      this.ws.menu.set(null);
+      if (this.ws.editing() !== null) this.ws.stopEditing();
+      this.ws.popup.set(null);
+      this.ws.clearSelection();
+      this.gesture = { kind: 'pan', last: this.local(e), start: { x: e.clientX, y: e.clientY }, moved: false };
+      return true;
+    }
+    return false;
+  }
+
+  /** Two-finger pinch and pan; true when the move was used. */
+  private touchMove(e: PointerEvent): boolean {
+    if (!this.touches.has(e.pointerId)) return false;
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.touchStart && Math.hypot(e.clientX - this.touchStart.x, e.clientY - this.touchStart.y) > CanvasControl.SLOP) this.cancelLong();
+    if (this.longFired) return true;
+    if (!this.pinch || this.touches.size < 2) return false;
+    const [a, b] = [...this.touches.values()];
+    const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const mid = this.local({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
+    const v = zoomAt(this.ws.view(), mid, dist / this.pinch.dist);
+    this.ws.setView({ zoom: v.zoom, pan: [v.pan[0] + mid.x - this.pinch.mid.x, v.pan[1] + mid.y - this.pinch.mid.y] });
+    this.pinch = { dist, mid };
+    return true;
+  }
+
+  /** A finger lifted; true when the touch code finished the gesture. */
+  private touchUp(e: PointerEvent): boolean {
+    this.lastTouchAt = Date.now();
+    this.touches.delete(e.pointerId);
+    this.cancelLong();
+    if (this.pinch) {
+      if (this.touches.size < 2) this.pinch = null;
+      this.gesture = null;
+      return true;
+    }
+    if (this.longFired) {
+      this.gesture = null;
+      return true;
+    }
+    const g = this.gesture;
+    const tapped = (g?.kind === 'pan' && !g.moved) || (g?.kind === 'card' && !g.moved);
+    if (!tapped) return false;
+    // Double tap (on the board or a card) works like a double-click.
+    const now = Date.now();
+    const prev = this.lastTap;
+    this.lastTap = { t: now, x: e.clientX, y: e.clientY };
+    if (prev && now - prev.t < 320 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 24) {
+      this.lastTap = null;
+      this.gesture = null;
+      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null) ?? (e.target as HTMLElement);
+      this.dblclick({ target: el, clientX: e.clientX, clientY: e.clientY } as unknown as MouseEvent);
+      return true;
+    }
+    // Tapping a card that was already selected edits it (or opens the board).
+    if (g?.kind === 'card' && g.wasSelected && this.ws.selected().size === 1 && this.ws.editing() !== g.id) {
+      this.gesture = null;
+      const c = this.ws.card(g.id);
+      if (c && 'Board' in c.content) this.ws.openBoard(c.content.Board.board);
+      else if (c && !c.locked) this.ws.edit(c.id);
+      return true;
+    }
+    return false;
+  }
+
+  /** True right after a touch: the browser's own long-press menu and double-tap events are ignored. */
+  private recentTouch(e: Event): boolean {
+    return e.isTrusted && Date.now() - this.lastTouchAt < 800;
+  }
+
+  cancel(e: PointerEvent): void {
+    if (e.pointerType === 'touch') {
+      this.touches.delete(e.pointerId);
+      this.cancelLong();
+      this.pinch = null;
+    }
+    if (this.gesture) this.up(e);
+  }
+
   // ---------- pointer ----------
 
   down(e: PointerEvent): void {
     this.pointer = this.local(e);
+    if (e.pointerType === 'touch' && this.touchDown(e)) return;
     const target = e.target as HTMLElement;
     this.ws.menu.set(null);
     if (e.button === 1 || (e.button === 0 && this.space)) {
@@ -158,7 +300,8 @@ export class CanvasControl {
       const id = Number(cardEl.dataset['card']);
       if (this.ws.editing() === id && (isField(target) || target.closest('button, a'))) return;
       if (target.closest('button, a') && !isField(target)) return;
-      this.gesture = { kind: 'card', id, start: { x: e.clientX, y: e.clientY }, moved: false, ids: [], offsets: new Map() };
+      const touch = e.pointerType === 'touch';
+      this.gesture = { kind: 'card', id, start: { x: e.clientX, y: e.clientY }, moved: false, ids: [], offsets: new Map(), touch, wasSelected: touch && this.ws.selected().has(id) };
       return;
     }
     if (target.closest('.nb-canvas') && !target.closest('.nb-float')) {
@@ -187,6 +330,7 @@ export class CanvasControl {
   }
 
   move(e: PointerEvent): void {
+    if (e.pointerType === 'touch' && this.touchMove(e)) return;
     const prev = this.pointer;
     this.pointer = this.local(e);
     const g = this.gesture;
@@ -194,13 +338,17 @@ export class CanvasControl {
     const w = this.world(e);
     switch (g.kind) {
       case 'pan': {
+        if (g.start && !g.moved) {
+          if (Math.hypot(e.clientX - g.start.x, e.clientY - g.start.y) < CanvasControl.SLOP) return;
+          g.moved = true;
+        }
         const v = this.ws.view();
         this.ws.setView({ zoom: v.zoom, pan: [v.pan[0] + this.pointer.x - prev.x, v.pan[1] + this.pointer.y - prev.y] });
         break;
       }
       case 'card': {
         if (!g.moved) {
-          if (Math.hypot(e.clientX - g.start.x, e.clientY - g.start.y) < 4) return;
+          if (Math.hypot(e.clientX - g.start.x, e.clientY - g.start.y) < (g.touch ? CanvasControl.SLOP : 4)) return;
           this.startCardDrag(g, e);
         }
         const pos = new Map<CardId, [number, number]>();
@@ -303,6 +451,10 @@ export class CanvasControl {
   }
 
   up(e: PointerEvent): void {
+    if (e.pointerType === 'touch' && this.touchUp(e)) {
+      this.redraw();
+      return;
+    }
     const g = this.gesture;
     this.gesture = null;
     if (!g) return;
@@ -372,6 +524,7 @@ export class CanvasControl {
   onPickFile?: (tool: Tool, place: Parameters<Workspace['create']>[1]) => void;
 
   dblclick(e: MouseEvent): void {
+    if (this.recentTouch(e)) return;
     const target = e.target as HTMLElement;
     if (target.closest('[data-handle], .nb-float')) return;
     const cardEl = target.closest<HTMLElement>('nb-card-view');
@@ -392,6 +545,10 @@ export class CanvasControl {
   contextmenu(e: MouseEvent): void {
     const target = e.target as HTMLElement;
     if (isField(target)) return;
+    if (this.recentTouch(e)) {
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
     const shell = (this.canvasEl().closest('.nb-shell') as HTMLElement).getBoundingClientRect();
     const x = e.clientX - shell.left;

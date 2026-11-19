@@ -7,6 +7,10 @@ export default [
   {
       "ignores": [
         "**/dist",
+        // native projects: generated Android/iOS/Tauri code and the web bundle copied into them
+        "apps/mobile/android/**",
+        "apps/mobile/ios/**",
+        "apps/desktop/src-tauri/**",
         "**/vite.config.*.timestamp*",
         "**/vitest.config.*.timestamp*"
       ]

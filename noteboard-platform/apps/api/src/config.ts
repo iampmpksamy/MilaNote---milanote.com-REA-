@@ -10,6 +10,13 @@ export const VERSION = process.env['NOTEBOARD_VERSION'] || '3.0.0-dev';
 export const API_VERSION = 1;
 export const MIN_CLIENT_API_VERSION = 1;
 
+/**
+ * Where the bundled native apps run: Android (Capacitor), iOS (Capacitor), Windows (Tauri v2 uses
+ * http://tauri.localhost on Windows and tauri://localhost elsewhere). They are not websites, and
+ * they never use cookies, so letting them read API answers does not expose browser sessions.
+ */
+export const DEFAULT_NATIVE_ORIGINS = ['https://localhost', 'capacitor://localhost', 'http://tauri.localhost', 'tauri://localhost'];
+
 export type RegistrationMode = 'invite' | 'approval' | 'open' | 'closed';
 export const REGISTRATION_MODES: RegistrationMode[] = ['invite', 'approval', 'open', 'closed'];
 
@@ -42,6 +49,8 @@ export interface Config {
   mongo: { host: string; port: number; replicaSet: string; db: string; url: string | null };
   redis: { host: string; port: number; url: string | null };
   setupTokenHours: number;
+  /** Origins of the native apps (Capacitor, Tauri) allowed to call the API with bearer tokens. */
+  nativeOrigins: string[];
 }
 
 const bool = (v: string | undefined, d: boolean) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(v));
@@ -111,6 +120,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     redis: { host: env['REDIS_HOST'] || 'noteboard-redis', port: int(env['REDIS_PORT'], 6379), url: env['REDIS_URL'] ?? null },
     setupTokenHours: int(env['SETUP_TOKEN_HOURS'], 24),
+    nativeOrigins: (env['NATIVE_ORIGINS'] ?? DEFAULT_NATIVE_ORIGINS.join(','))
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
   };
 }
 

@@ -22,5 +22,5 @@ export default defineConfig({
   webServer: external
     ? undefined
     : { command: `node tools/dev-stack.mjs ${port} tmp/e2e-server`, url: `http://127.0.0.1:${port}/api/v1/ready`, reuseExistingServer: false, cwd: workspaceRoot, timeout: 120_000 },
-  projects: [{ name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge', viewport: { width: 1360, height: 860 } } }],
+  projects: [{ name: 'edge', use: { ...devices['Desktop Edge'], channel: process.env.NB_CHANNEL ?? 'msedge', viewport: { width: 1360, height: 860 } } }],
 });

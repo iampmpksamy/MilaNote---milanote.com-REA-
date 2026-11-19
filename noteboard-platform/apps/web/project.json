@@ -4,7 +4,10 @@
   "projectType": "application",
   "prefix": "nb",
   "sourceRoot": "apps/web/src",
-  "tags": ["type:app", "scope:web"],
+  "tags": [
+    "type:app",
+    "scope:web"
+  ],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
@@ -43,11 +46,81 @@
             }
           ],
           "outputHashing": "all",
-          "optimization": { "scripts": true, "styles": { "minify": true, "inlineCritical": false }, "fonts": true }
+          "optimization": {
+            "scripts": true,
+            "styles": {
+              "minify": true,
+              "inlineCritical": false
+            },
+            "fonts": true
+          }
         },
         "development": {
           "optimization": false,
           "extractLicenses": false,
+          "sourceMap": true
+        },
+        "native": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "8kb",
+              "maximumError": "16kb"
+            }
+          ],
+          "outputHashing": "all",
+          "optimization": {
+            "scripts": true,
+            "styles": {
+              "minify": true,
+              "inlineCritical": false
+            },
+            "fonts": true
+          },
+          "outputPath": "dist/apps/native",
+          "index": {
+            "input": "apps/web/src/index.native.html",
+            "output": "index.html"
+          },
+          "define": {
+            "NB_ALLOW_HTTP": "false"
+          }
+        },
+        "native-dev": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "8kb",
+              "maximumError": "16kb"
+            }
+          ],
+          "outputHashing": "all",
+          "optimization": {
+            "scripts": true,
+            "styles": {
+              "minify": true,
+              "inlineCritical": false
+            },
+            "fonts": true
+          },
+          "outputPath": "dist/apps/native",
+          "index": {
+            "input": "apps/web/src/index.native-dev.html",
+            "output": "index.html"
+          },
+          "define": {
+            "NB_ALLOW_HTTP": "true"
+          },
           "sourceMap": true
         }
       }

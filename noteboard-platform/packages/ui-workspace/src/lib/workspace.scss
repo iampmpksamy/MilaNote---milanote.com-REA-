@@ -396,3 +396,98 @@ nb-icon { display: inline-flex; width: 30px; height: 30px; }
 nb-icon svg { width: 100%; height: 100%; overflow: visible; }
 nb-icon .card { fill: var(--nb-icon-card); stroke: var(--nb-icon-card-edge); stroke-width: 1; }
 nb-icon .faint { stroke: var(--nb-muted); }
+// ---------- touch screens (phones, tablets, touch laptops) ----------
+@media (pointer: coarse) {
+  // Bigger targets for fingers; the visible dot stays small, the hit area grows.
+  .nb-handle { width: 24px; height: 24px; margin: -12px 0 0 -12px; background: transparent; border: 0;
+    &::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: #fff; border: 1.5px solid var(--nb-text); }
+    &:hover { background: transparent; } }
+  .nb-resize { width: 30px; height: 30px; margin: -30px 0 0 -30px; background-size: 14px 14px; background-position: right bottom; background-repeat: no-repeat; }
+  .nb-menu { width: 240px; button { height: 42px; font-size: 15px; } }
+  .nb-iconbtn:hover:not(:disabled), .nb-tool:hover, .nb-crumb:hover { background: none; }
+  .nb-zoom button { min-width: 38px; height: 34px; }
+  .nb-check { width: 20px; height: 20px; margin-top: 1px; }
+}
+
+// ---------- phones: toolbar at the bottom, sheets instead of side panels ----------
+@media (max-width: 640px) {
+  .nb-shell { padding-bottom: 0; }
+  .nb-header {
+    height: calc(#{u(48px)} + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
+    gap: 0;
+  }
+  .nb-logo, .nb-header > .nb-vsep { display: none; }
+  // Only the parent and the current board: the parent is the way back.
+  .nb-crumbs { flex: 1; overflow: hidden; > :not(:nth-last-child(-n + 3)) { display: none; } }
+  .nb-crumb { overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+  // Short status on phones (the full wording stays in the text for screen readers).
+  .nb-status { font-size: 0; margin-right: 6px; white-space: nowrap;
+    &::after { font-size: 11.5px; content: '✓ Saved'; }
+    &[data-state='saving']::after { content: 'Saving…'; }
+    &[data-state='error']::after { content: '⚠ Not saved'; } }
+  .nb-main { flex-direction: column-reverse; position: relative; }
+  .nb-toolbar {
+    width: auto;
+    height: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px));
+    flex-direction: row;
+    align-items: center;
+    padding: 0 6px env(safe-area-inset-bottom, 0px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-top: 1px solid var(--nb-divider);
+    touch-action: pan-x;
+  }
+  .nb-tool { width: u(62px); height: u(56px); flex: none; touch-action: pan-x;
+    &.back { height: u(56px); margin: 0 6px 0 0; &::after { left: auto; right: -4px; top: 10px; bottom: 10px; border-bottom: 0; border-right: 1px solid var(--nb-divider); } } }
+  .nb-tsep { width: 0; height: 34px; margin: 0 4px; }
+  .nb-badge { top: 4px; right: 8px; }
+
+  // Tool options, header popups, the context menu and Unsorted become bottom sheets.
+  .nb-tool-popup, .nb-header-popup, .nb-menu {
+    position: fixed;
+    left: 8px !important;
+    right: 8px;
+    top: auto !important;
+    bottom: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px) + 8px);
+    width: auto;
+    max-height: 55vh;
+    overflow-y: auto;
+    border-radius: 14px;
+    animation: nb-sheet 0.16s ease-out;
+  }
+  .nb-header-popup { top: calc(#{u(48px)} + env(safe-area-inset-top, 0px) + 6px) !important; bottom: auto; }
+  .nb-board-swatches { grid-template-columns: repeat(7, 1fr); }
+  .nb-icon-grid { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); button { height: 40px; } }
+  .nb-drawer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 62%;
+    z-index: 30;
+    border-left: 0;
+    border-top: 1px solid var(--nb-divider);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    animation: nb-sheet 0.18s ease-out;
+  }
+  .nb-settings { width: 100%; height: 100%; border-radius: 0; flex-direction: column; padding: calc(14px + env(safe-area-inset-top, 0px)) 14px 14px; gap: 10px;
+    nav { width: auto; display: flex; overflow-x: auto; gap: 4px; button { width: auto; flex: none; white-space: nowrap; } } }
+  .nb-trash { width: calc(100vw - 24px); }
+  .nb-zoom { right: 10px; bottom: 10px; .pct { display: none; } }
+  .nb-pill { top: 10px; right: 10px; }
+  .nb-toast { bottom: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px) + 16px); max-width: calc(100vw - 32px); }
+}
+@keyframes nb-sheet { from { transform: translateY(24px); opacity: 0; } }
+
+// Phones in landscape: keep the toolbar on the side (more height for the board).
+@media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  .nb-header { height: calc(#{u(40px)} + env(safe-area-inset-top, 0px)); }
+  .nb-main { flex-direction: row; }
+  .nb-toolbar { width: u(62px); height: auto; flex-direction: column; overflow-y: auto; overflow-x: hidden; border-top: 0; border-right: 1px solid var(--nb-divider); padding: 4px 0 4px env(safe-area-inset-left, 0px); touch-action: pan-y; }
+  .nb-tool { width: calc(100% - 8px); height: u(52px); touch-action: pan-y; }
+}

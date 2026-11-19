@@ -23,7 +23,8 @@ export class WorkspaceRoutes {
     const ws = await this.ctx.workspaces.forUser(user._id);
     const rev = Number(b['rev']);
     if (!Number.isInteger(rev) || rev < 0) throw new ApiFail(400, 'bad_rev', 'rev is required');
-    return this.ctx.workspaces.save(ws, rev, b['store']);
+    const opId = typeof b['opId'] === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(b['opId']) ? b['opId'] : undefined;
+    return this.ctx.workspaces.save(ws, rev, b['store'], opId);
   }
 
   @Put('workspace/prefs')

@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { emptyStore, importDesktopStore, type ImportReport, type Store, type StoreWithImports, validateDesktopFile } from '@noteboard/board-model';
 import { IndexedDbStorage } from '@noteboard/ui-workspace';
-import { api, ServerApi } from './api';
+import { saveFile } from '../native/platform';
+import { api, apiBlob, ServerApi } from './api';
 import { message, MfaSetup } from './auth.pages';
 
 interface SessionRow {
@@ -15,6 +16,7 @@ interface SessionRow {
   lastSeenAt: string;
   ip: string;
   userAgent: string;
+  kind?: 'app' | 'browser';
 }
 
 @Component({
@@ -26,7 +28,7 @@ interface SessionRow {
         <a routerLink="/" class="nb-btn" data-testid="back-to-boards">← Boards</a>
         <h1>Your account</h1>
         <span class="nb-spacer"></span>
-        @if (api.isAdmin) {
+        @if (api.isAdmin && !api.native) {
           <a class="nb-btn" [routerLink]="adminPath">Admin panel</a>
         }
         <button class="nb-btn" data-testid="sign-out" (click)="signOut()">Sign out</button>
@@ -84,7 +86,7 @@ interface SessionRow {
           <tbody>
             @for (s of sessions(); track s.id) {
               <tr>
-                <td>{{ shortAgent(s.userAgent) }} @if (s.current) { <b>(this one)</b> }</td>
+                <td>{{ shortAgent(s.userAgent) }} @if (s.kind === 'app') { <small class="nb-muted">app</small> } @if (s.current) { <b>(this one)</b> }</td>
                 <td>{{ s.ip }}</td>
                 <td>{{ s.lastSeenAt | date: 'medium' }}</td>
                 <td>@if (!s.current) { <button class="nb-btn small" (click)="revoke(s.id)">Sign out</button> }</td>
@@ -97,7 +99,11 @@ interface SessionRow {
       <section class="nb-panel">
         <h2>Your data</h2>
         <p>Download everything in your account: <code>boards.json</code> (the desktop app's format), your preferences and every picture.</p>
-        <a class="nb-btn" href="/api/v1/export" data-testid="export">Download export</a>
+        @if (api.native) {
+          <button class="nb-btn" data-testid="export" [disabled]="busy()" (click)="exportNative()">Save export</button>
+        } @else {
+          <a class="nb-btn" href="/api/v1/export" data-testid="export">Download export</a>
+        }
         @if (local(); as l) {
           <h3>Boards saved in this browser</h3>
           <p>This browser also has boards from before you had an account ({{ l.report.boards }} boards, {{ l.report.cards }} cards, {{ l.images.length }} pictures). Copy them into your account as one board under Home. Nothing in your account is replaced, and the browser copy stays.</p>
@@ -189,6 +195,20 @@ export class AccountPage implements OnInit {
     }
   }
 
+  /** Apps: fetch the export with the sign-in token and hand it to the share sheet / save dialog. */
+  async exportNative() {
+    this.busy.set(true);
+    try {
+      const blob = await apiBlob('/export');
+      const where = await saveFile(`noteboard-export-${new Date().toISOString().slice(0, 10)}.tar.gz`, blob);
+      this.notice.set(where ? 'Export ready.' : 'Export saved.');
+    } catch (e) {
+      this.notice.set(`The export didn't finish: ${message(e)}`);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
   async saveName() {
     try {
       await api('PATCH', '/me', { name: this.name });
@@ -243,6 +263,7 @@ export class AccountPage implements OnInit {
   }
 
   shortAgent(ua: string) {
+    if (ua.startsWith('Noteboard ')) return ua; // the apps name themselves ("Noteboard Android 3.0.0-alpha.4")
     const b = /(Edg|Chrome|Firefox|Safari)\/[\d.]+/.exec(ua)?.[1] ?? 'Browser';
     const os = /Windows|Android|iPhone|iPad|Mac OS X|Linux/.exec(ua)?.[0] ?? '';
     return `${b === 'Edg' ? 'Edge' : b}${os ? ` on ${os.replace('Mac OS X', 'macOS')}` : ''}`;

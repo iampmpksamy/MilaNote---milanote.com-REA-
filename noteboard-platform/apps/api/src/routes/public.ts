@@ -3,9 +3,9 @@ import { Body, Controller, Get, HttpCode, Inject, Param, Post, Req, Res } from '
 import type { Response } from 'express';
 import { API_VERSION, MIN_CLIENT_API_VERSION } from '../config';
 import { passwordProblem } from '../crypto';
+import { ACCESS_MINUTES, SESSION_DAYS } from '../services/accounts';
 import { CTX, type Ctx } from '../ctx';
-import { ApiFail, limit, type NbRequest, setSessionCookie, str } from '../http';
-import { SESSION_DAYS } from '../services/accounts';
+import { ApiFail, beginSession, limit, type NbRequest, str } from '../http';
 
 export async function discovery(ctx: Ctx) {
   const s = await ctx.settings.get();
@@ -30,6 +30,8 @@ export async function discovery(ctx: Ctx) {
     },
     branding: { accent: s.branding.accent, logo: !!s.branding.logo, favicon: !!s.branding.favicon },
     maintenance: s.maintenance.enabled ? { message: s.maintenance.message } : null,
+    // Native apps (Android, iOS, Windows): bearer tokens with refresh rotation (see /native/*).
+    native: { auth: 'bearer-v1', accessMinutes: ACCESS_MINUTES, refreshDays: SESSION_DAYS },
   };
 }
 
@@ -125,10 +127,9 @@ export class PublicRoutes {
         if (Object.keys(r.errors).length) this.ctx.log(`setup: public address not saved: ${JSON.stringify(r.errors)}`);
       }
       await this.ctx.audit('setup.complete', { actor: user, ip: req.nb.ip });
-      const { token } = await this.ctx.accounts.startSession(user, req.nb.ip, req.get('user-agent') ?? '');
-      setSessionCookie(res, req, token, SESSION_DAYS);
+      const { extra } = await beginSession(this.ctx, req, res, user);
       this.ctx.log(`setup complete: super administrator ${user.email} created; the setup route is now closed`);
-      return { ok: true, next: 'mfa' };
+      return { ok: true, next: 'mfa', ...extra };
     } catch (e) {
       await this.ctx.d.c.settings.updateOne({ _id: 'platform' }, { $set: { setupCompletedAt: null } });
       this.ctx.settings.invalidate();

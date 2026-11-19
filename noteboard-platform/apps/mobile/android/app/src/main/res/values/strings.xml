@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Noteboard</string>
+    <string name="title_activity_main">Noteboard</string>
+    <string name="package_name">com.pmpksamy.noteboard</string>
+    <string name="custom_url_scheme">com.pmpksamy.noteboard</string>
+</resources>

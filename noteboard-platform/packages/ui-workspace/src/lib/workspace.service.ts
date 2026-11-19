@@ -98,6 +98,8 @@ export class Workspace {
   readonly toast = signal<{ text: string; undo: boolean } | null>(null);
   readonly dirty = signal(false);
   readonly saveError = signal(false);
+  /** Boards saved on a server could not be loaded: nothing is shown or saved until a reload works. */
+  readonly loadFailed = signal(false);
   readonly search = signal('');
   /** The column (or the drawer) a dragged card would drop into. */
   readonly dropColumn = signal<CardId | null>(null);
@@ -153,6 +155,8 @@ export class Workspace {
       loaded = await this.storage.load();
     } catch {
       this.saveError.set(true);
+      // Never replace someone's server boards with the sample boards.
+      if (this.storage.remote) this.loadFailed.set(true);
     }
     this.data = loaded.store ?? sampleStore();
     if (migrate(this.data)) this.dirty.set(true);
@@ -177,6 +181,7 @@ export class Workspace {
   }
 
   private scheduleSave(): void {
+    if (this.loadFailed()) return;
     this.dirty.set(true);
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => void this.saveNow(), 600);
@@ -185,6 +190,7 @@ export class Workspace {
   async saveNow(): Promise<void> {
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = null;
+    if (this.loadFailed()) return;
     try {
       await this.storage.saveStore(this.data);
       this.saveError.set(false);
@@ -263,7 +269,7 @@ export class Workspace {
 
   setPrefs(p: Partial<Prefs>): void {
     this.prefs.update((old) => ({ ...old, ...p }));
-    void this.storage.savePrefs(this.prefs()).catch(() => this.saveError.set(true));
+    if (!this.loadFailed()) void this.storage.savePrefs(this.prefs()).catch(() => this.saveError.set(true));
   }
 
   toggleTheme(): void {
@@ -463,10 +469,11 @@ export class Workspace {
     this.showToast('Only the file name was kept: browsers can\'t link to files on your computer.');
   }
 
-  createTextCard(text: string, at: Pt): void {
+  createTextCard(text: string, at: Pt | Place): void {
     const t = text.trim();
-    if (/^https?:\/\/\S+$/.test(t)) this.insert({ Link: { url: t, title: '' } }, 280, { at });
-    else this.insert({ Note: { text: t } }, 300, { at });
+    const place: Place = 'x' in at ? { at } : at;
+    if (/^https?:\/\/\S+$/.test(t)) this.insert({ Link: { url: t, title: '' } }, 280, place);
+    else this.insert({ Note: { text: t } }, 300, place);
   }
 
   // ---------- moving ----------

@@ -121,8 +121,20 @@ export class MfaSetup {
         </p>
         @if (api.discovery()?.registration === 'open' || api.discovery()?.registration === 'approval') {
           <p class="nb-muted small">New here? <a routerLink="/register">Create an account</a></p>
-        } @else {
+        } @else if (!api.native) {
           <p class="nb-muted small">New here? Open the invitation link your administrator sent you.</p>
+        }
+        @if (api.native) {
+          <form class="nb-link-paste" (ngSubmit)="openLink()">
+            <label
+              >Invitation or password link
+              <input name="link" data-testid="paste-link" autocapitalize="off" spellcheck="false" placeholder="Paste the link you were sent" [(ngModel)]="link" />
+            </label>
+            <button class="nb-btn small" type="submit">Open</button>
+          </form>
+          <p class="nb-muted small" data-testid="login-server">
+            Server: {{ api.server()?.url }} · <a routerLink="/connect">Change</a>
+          </p>
         }
       } @else {
         <h1>Two-step sign-in</h1>
@@ -183,11 +195,38 @@ export class LoginPage implements OnInit {
     await this.api.refreshMe();
     await this.router.navigateByUrl('/');
   }
+
+  link = '';
+
+  /** Apps: opens an invitation or password link inside the app, only if it is for this server. */
+  async openLink() {
+    this.error.set('');
+    let u: URL;
+    try {
+      u = new URL(this.link.trim());
+    } catch {
+      this.error.set('Paste the whole link, starting with https://');
+      return;
+    }
+    const server = this.api.server()?.url ?? '';
+    const known = [server, this.api.discovery()?.publicUrl ?? ''].filter(Boolean).map((x) => new URL(x).origin);
+    if (!known.includes(u.origin)) {
+      this.error.set(`This link is for ${u.origin}, not ${server}. Add that server first (Change server).`);
+      return;
+    }
+    const m = /^\/(invite|reset|verify)\/([A-Za-z0-9_-]{10,100})$/.exec(u.pathname);
+    if (!m) {
+      this.error.set("That isn't an invitation or password link.");
+      return;
+    }
+    this.link = '';
+    await this.router.navigateByUrl(`/${m[1]}/${m[2]}`);
+  }
 }
 
 @Component({
   selector: 'nb-setup-page',
-  imports: [AuthFrame, FormsModule, MfaSetup],
+  imports: [AuthFrame, FormsModule, MfaSetup, RouterLink],
   template: `
     <nb-auth-frame>
       @switch (step()) {
@@ -222,7 +261,7 @@ export class LoginPage implements OnInit {
         }
         @case ('closed') {
           <h1>Already set up</h1>
-          <p>This server has an administrator. <a href="/login">Sign in</a></p>
+          <p>This server has an administrator. <a routerLink="/login">Sign in</a></p>
         }
       }
     </nb-auth-frame>
@@ -287,7 +326,7 @@ export class SetupPage implements OnInit {
 
 @Component({
   selector: 'nb-invite-page',
-  imports: [AuthFrame, FormsModule],
+  imports: [AuthFrame, FormsModule, RouterLink],
   template: `
     <nb-auth-frame>
       @if (mode() === 'invite' && !invite() && !error()) {
@@ -298,7 +337,7 @@ export class SetupPage implements OnInit {
       } @else if (result()) {
         <h1>Almost there</h1>
         <p>{{ result() }}</p>
-        <a class="nb-btn" href="/login">Back to sign-in</a>
+        <a class="nb-btn" routerLink="/login">Back to sign-in</a>
       } @else {
         <h1>{{ mode() === 'invite' ? 'Create your account' : 'Create an account' }}</h1>
         @if (mode() === 'register' && api.discovery()?.registration === 'approval') {
@@ -370,13 +409,13 @@ export class InvitePage implements OnInit {
 
 @Component({
   selector: 'nb-reset-page',
-  imports: [AuthFrame, FormsModule],
+  imports: [AuthFrame, FormsModule, RouterLink],
   template: `
     <nb-auth-frame>
       @if (done()) {
         <h1>Password saved</h1>
         <p>You can sign in with your new password now. Other devices were signed out.</p>
-        <a class="nb-btn primary" href="/login" data-testid="reset-done">Sign in</a>
+        <a class="nb-btn primary" routerLink="/login" data-testid="reset-done">Sign in</a>
       } @else if (info()) {
         <h1>Choose a password</h1>
         <p class="nb-muted">For {{ info()!.email }}</p>
@@ -432,7 +471,7 @@ export class ResetPage implements OnInit {
 
 @Component({
   selector: 'nb-forgot-page',
-  imports: [AuthFrame, FormsModule],
+  imports: [AuthFrame, FormsModule, RouterLink],
   template: `
     <nb-auth-frame>
       <h1>Reset your password</h1>
@@ -447,7 +486,7 @@ export class ResetPage implements OnInit {
           <button class="nb-btn primary wide" type="submit">Send link</button>
         </form>
       }
-      <p class="nb-muted small"><a href="/login">Back to sign-in</a></p>
+      <p class="nb-muted small"><a routerLink="/login">Back to sign-in</a></p>
     </nb-auth-frame>
   `,
 })
@@ -467,12 +506,12 @@ export class ForgotPage {
 
 @Component({
   selector: 'nb-verify-page',
-  imports: [AuthFrame],
+  imports: [AuthFrame, RouterLink],
   template: `
     <nb-auth-frame>
       <h1>Confirm your e-mail</h1>
       <p [class.nb-error]="state() === 'bad'">{{ text() }}</p>
-      <a class="nb-btn" href="/login">Sign in</a>
+      <a class="nb-btn" routerLink="/login">Sign in</a>
     </nb-auth-frame>
   `,
 })

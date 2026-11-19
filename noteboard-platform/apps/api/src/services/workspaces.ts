@@ -69,7 +69,10 @@ export class Workspaces {
     return store;
   }
 
-  async save(ws: WorkspaceDoc, expectedRev: number, input: unknown): Promise<{ rev: number; blankedLinks: number; written: number }> {
+  async save(ws: WorkspaceDoc, expectedRev: number, input: unknown, opId?: string): Promise<{ rev: number; blankedLinks: number; written: number; replayed?: boolean }> {
+    // A client that lost the answer to a save sends it again with the same operation id: say it
+    // was saved (with the revision it produced) instead of reporting a conflict with itself.
+    if (opId && ws.lastOp?.id === opId && ws.lastOp.rev === expectedRev + 1) return { rev: ws.lastOp.rev, blankedLinks: 0, written: 0, replayed: true };
     const check = checkStore(input);
     if (!check.ok) throw new ApiFail(400, 'invalid_store', 'The boards could not be saved because they are not valid', check.errors.slice(0, 20));
     const store = input as Store & { imports?: unknown[] };
@@ -103,6 +106,7 @@ export class Workspaces {
               'usage.boards': check.counts.boards,
               'usage.cards': check.counts.cards,
               'usage.arrows': check.counts.arrows,
+              lastOp: opId ? { id: opId, rev: expectedRev + 1 } : null,
             },
             $inc: { rev: 1 },
           },

@@ -9,6 +9,7 @@ import { migrate, SCHEMA_VERSION } from './db';
 import { ErrorFilter, requestState } from './http';
 import { AdminRoutes } from './routes/admin';
 import { AuthRoutes, MeRoutes } from './routes/auth';
+import { NativeRoutes } from './routes/native';
 import { discovery, PublicRoutes } from './routes/public';
 import { WorkspaceRoutes } from './routes/workspace';
 import { connectAll } from './runtime';
@@ -18,7 +19,7 @@ class AppModule {
   static forRoot(ctx: Ctx): DynamicModule {
     return {
       module: AppModule,
-      controllers: [PublicRoutes, AuthRoutes, MeRoutes, WorkspaceRoutes, AdminRoutes],
+      controllers: [PublicRoutes, AuthRoutes, MeRoutes, NativeRoutes, WorkspaceRoutes, AdminRoutes],
       providers: [{ provide: CTX, useValue: ctx }],
     };
   }
@@ -35,6 +36,7 @@ export async function start(): Promise<{ ctx: Ctx; close: () => Promise<void> }>
     log(`refusing to start: the database uses schema ${schema} but this version only knows ${SCHEMA_VERSION}. Use the newer image, or restore a backup made by this version.`);
     process.exit(3);
   }
+  await ctx.accounts.ensureNativeIndexes();
   await ctx.settings.seed();
   if (await ctx.setupRequired()) {
     const t = ctx.setupToken();

@@ -4,6 +4,26 @@ import type { Database, Role, SessionDoc, TokenDoc, UserDoc, UserStatus } from '
 import { ApiFail } from './workspaces';
 
 export const SESSION_DAYS = 30;
+/** Lifetime of a native app's access token; the app refreshes it with its refresh token. */
+export const ACCESS_MINUTES = 15;
+
+export interface NativeTokens {
+  accessToken: string;
+  accessExpiresAt: string;
+  refreshToken: string;
+  refreshExpiresAt: string;
+  sessionId: string;
+}
+
+function tokensOut(access: string, refresh: string, s: SessionDoc): NativeTokens {
+  return {
+    accessToken: access,
+    accessExpiresAt: s.native!.accessExpiresAt.toISOString(),
+    refreshToken: refresh,
+    refreshExpiresAt: s.expiresAt.toISOString(),
+    sessionId: s._id.slice(0, 16),
+  };
+}
 const LOCK_AFTER = 10;
 const LOCK_MINUTES = 15;
 
@@ -134,7 +154,7 @@ export class Accounts {
   async resolve(token: string): Promise<{ session: SessionDoc; user: UserDoc } | null> {
     if (!token || token.length > 100) return null;
     const session = await this.d.c.sessions.findOne({ _id: sha256(token) });
-    if (!session || session.expiresAt < new Date()) return null;
+    if (!session || session.native || session.expiresAt < new Date()) return null;
     const user = await this.findById(session.userId);
     if (!user || user.status !== 'active') return null;
     if (Date.now() - session.lastSeenAt.getTime() > 5 * 60_000) {
@@ -142,6 +162,97 @@ export class Accounts {
       await this.d.c.sessions.updateOne({ _id: session._id }, { $set: { lastSeenAt: now, expiresAt: new Date(now.getTime() + SESSION_DAYS * 86400_000) } });
     }
     return { session, user };
+  }
+
+  // ---------- native app sessions (bearer tokens) ----------
+  //
+  // A native app gets a short-lived access token (sent as `Authorization: Bearer`) and a refresh
+  // token kept in the operating system's protected storage. Every refresh replaces both; a refresh
+  // token that was already replaced and is shown again means a copy exists, so the whole session
+  // is ended. Ending the session (sign-out, "sign out everywhere", password reset, admin
+  // suspension) stops both tokens at once because both live on the same session record.
+
+  async startNativeSession(u: UserDoc, ip: string, client: string): Promise<{ session: SessionDoc; tokens: NativeTokens }> {
+    const now = new Date();
+    const access = randomToken(32);
+    const refresh = randomToken(32);
+    const session: SessionDoc = {
+      _id: sha256(randomToken(32)),
+      userId: u._id,
+      createdAt: now,
+      lastSeenAt: now,
+      expiresAt: new Date(now.getTime() + SESSION_DAYS * 86400_000),
+      ip,
+      userAgent: client.slice(0, 300),
+      mfaPending: u.mfa.enabled,
+      native: {
+        client: client.slice(0, 120),
+        accessHash: sha256(access),
+        accessExpiresAt: new Date(now.getTime() + ACCESS_MINUTES * 60_000),
+        refreshHash: sha256(refresh),
+        prevRefreshHash: null,
+      },
+    };
+    await this.d.c.sessions.insertOne(session);
+    return { session, tokens: tokensOut(access, refresh, session) };
+  }
+
+  /** The session behind a bearer access token, or why there is none. */
+  async resolveAccess(token: string): Promise<{ session: SessionDoc; user: UserDoc } | 'expired' | null> {
+    if (!token || token.length > 100) return null;
+    const session = await this.d.c.sessions.findOne({ 'native.accessHash': sha256(token) });
+    if (!session?.native || session.expiresAt < new Date()) return null;
+    if (session.native.accessExpiresAt < new Date()) return 'expired';
+    const user = await this.findById(session.userId);
+    if (!user || user.status !== 'active') return null;
+    if (Date.now() - session.lastSeenAt.getTime() > 5 * 60_000) await this.d.c.sessions.updateOne({ _id: session._id }, { $set: { lastSeenAt: new Date() } });
+    return { session, user };
+  }
+
+  /** Swaps a refresh token for new tokens. Reuse of an old refresh token ends the session. */
+  async refreshNative(refresh: string, ip: string): Promise<{ session: SessionDoc; user: UserDoc; tokens: NativeTokens } | 'reused' | null> {
+    if (!refresh || refresh.length > 100) return null;
+    const h = sha256(refresh);
+    const now = new Date();
+    const access = randomToken(32);
+    const next = randomToken(32);
+    const session = await this.d.c.sessions.findOneAndUpdate(
+      { 'native.refreshHash': h, expiresAt: { $gt: now } },
+      {
+        $set: {
+          'native.accessHash': sha256(access),
+          'native.accessExpiresAt': new Date(now.getTime() + ACCESS_MINUTES * 60_000),
+          'native.refreshHash': sha256(next),
+          'native.prevRefreshHash': h,
+          lastSeenAt: now,
+          expiresAt: new Date(now.getTime() + SESSION_DAYS * 86400_000),
+          ip,
+        },
+      },
+      { returnDocument: 'after' },
+    );
+    if (!session) {
+      const stolen = await this.d.c.sessions.findOneAndDelete({ 'native.prevRefreshHash': h });
+      return stolen ? 'reused' : null;
+    }
+    const user = await this.findById(session.userId);
+    if (!user || user.status !== 'active') {
+      await this.d.c.sessions.deleteOne({ _id: session._id });
+      return null;
+    }
+    return { session, user, tokens: tokensOut(access, next, session) };
+  }
+
+  async revokeByRefresh(refresh: string): Promise<void> {
+    if (!refresh || refresh.length > 100) return;
+    await this.d.c.sessions.deleteOne({ 'native.refreshHash': sha256(refresh) });
+  }
+
+  /** Native-session indexes; created at start (idempotent, no schema change, so rollback stays possible). */
+  async ensureNativeIndexes(): Promise<void> {
+    await this.d.c.sessions.createIndex({ 'native.accessHash': 1 }, { sparse: true, name: 'native_access' });
+    await this.d.c.sessions.createIndex({ 'native.refreshHash': 1 }, { sparse: true, name: 'native_refresh' });
+    await this.d.c.sessions.createIndex({ 'native.prevRefreshHash': 1 }, { sparse: true, name: 'native_prev_refresh' });
   }
 
   revokeSession(id: string, userId: string) {

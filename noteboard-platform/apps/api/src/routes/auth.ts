@@ -4,8 +4,8 @@ import type { Response } from 'express';
 import { otpauthUri, passwordProblem, verifyPassword } from '../crypto';
 import { CTX, type Ctx } from '../ctx';
 import type { UserDoc } from '../db';
-import { ApiFail, clearSessionCookie, limit, type NbRequest, needUser, setSessionCookie, str } from '../http';
-import { normEmail, publicUser, SESSION_DAYS } from '../services/accounts';
+import { ApiFail, beginSession, clearSessionCookie, limit, type NbRequest, needUser, str } from '../http';
+import { normEmail, publicUser } from '../services/accounts';
 
 export async function sendLink(ctx: Ctx, to: string, subject: string, intro: string, link: string): Promise<boolean> {
   const s = await ctx.settings.get();
@@ -40,10 +40,9 @@ export class AuthRoutes {
       await this.ctx.audit('auth.login_failed', { target: email, ip: req.nb.ip, details: { reason: (e as ApiFail).code } });
       throw e;
     }
-    const { token, session } = await this.ctx.accounts.startSession(user, req.nb.ip, req.get('user-agent') ?? '');
-    setSessionCookie(res, req, token, SESSION_DAYS);
-    await this.ctx.audit(session.mfaPending ? 'auth.password_ok' : 'auth.login', { actor: user, ip: req.nb.ip });
-    return { mfaRequired: session.mfaPending, user: session.mfaPending ? null : publicUser(user) };
+    const { session, extra } = await beginSession(this.ctx, req, res, user);
+    await this.ctx.audit(session.mfaPending ? 'auth.password_ok' : 'auth.login', { actor: user, ip: req.nb.ip, details: req.nb.native ? { client: session.native?.client } : undefined });
+    return { mfaRequired: session.mfaPending, user: session.mfaPending ? null : publicUser(user), ...extra };
   }
 
   @Post('mfa')
@@ -69,7 +68,7 @@ export class AuthRoutes {
       await this.ctx.accounts.revokeSession(req.nb.session._id, req.nb.session.userId);
       await this.ctx.audit('auth.logout', { actor: req.nb.user, ip: req.nb.ip });
     }
-    clearSessionCookie(res, req);
+    if (!req.nb.native) clearSessionCookie(res, req);
     return { ok: true };
   }
 
@@ -124,9 +123,8 @@ export class AuthRoutes {
       return { status: 'verify_email' };
     }
     if (status === 'pending') return { status: 'pending' };
-    const { token } = await this.ctx.accounts.startSession(user, req.nb.ip, req.get('user-agent') ?? '');
-    setSessionCookie(res, req, token, SESSION_DAYS);
-    return { status: 'active', user: publicUser(user) };
+    const { extra } = await beginSession(this.ctx, req, res, user);
+    return { status: 'active', user: publicUser(user), ...extra };
   }
 
   @Post('verify')
@@ -231,6 +229,7 @@ export class MeRoutes {
         lastSeenAt: s.lastSeenAt,
         ip: s.ip,
         userAgent: s.userAgent,
+        kind: s.native ? 'app' : 'browser',
       })),
     };
   }

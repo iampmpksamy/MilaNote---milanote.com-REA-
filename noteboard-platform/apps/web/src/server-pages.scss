@@ -28,6 +28,7 @@ nb-invite-page,
 nb-reset-page,
 nb-forgot-page,
 nb-verify-page,
+nb-connect-page,
 nb-account-page,
 nb-admin-page {
   display: block;
@@ -118,6 +119,8 @@ nb-setup-page,
 nb-invite-page,
 nb-reset-page,
 nb-forgot-page,
+nb-verify-page,
+nb-connect-page,
 nb-account-page,
 nb-admin-page {
   label {
@@ -441,4 +444,88 @@ nb-admin-page {
   gap: 10px;
   align-items: center;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+// ---------- native apps: server list, safe areas, phones ----------
+.nb-auth {
+  padding-top: calc(32px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+}
+.nb-server-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  li {
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    &.current {
+      border-color: var(--pg-accent);
+    }
+    > .nb-btn {
+      justify-content: flex-start;
+      gap: 6px;
+      small {
+        color: var(--pg-muted);
+      }
+      &[aria-current='true'] {
+        outline: 2px solid var(--pg-accent);
+      }
+    }
+  }
+}
+.nb-server-head {
+  display: flex;
+  flex-direction: column;
+  small {
+    overflow-wrap: anywhere;
+  }
+}
+.nb-ok {
+  background: rgba(61, 153, 112, 0.12);
+  color: inherit;
+  border-left: 3px solid #3d9970;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 6px 0 10px;
+}
+nb-connect-page .nb-warn[role='alert'] {
+  background: rgba(154, 106, 0, 0.1);
+  border-left: 3px solid var(--pg-warn);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+.nb-link-paste {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  label {
+    flex: 1;
+    margin: 0;
+  }
+}
+@media (max-width: 640px) {
+  .nb-auth {
+    padding-left: 10px;
+    padding-right: 10px;
+    place-items: start center;
+  }
+  .nb-auth-card {
+    padding: 22px 18px 16px;
+  }
+  .nb-banner {
+    left: 8px;
+    right: 8px;
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    transform: none;
+    flex-wrap: wrap;
+  }
+  .nb-page {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
 }

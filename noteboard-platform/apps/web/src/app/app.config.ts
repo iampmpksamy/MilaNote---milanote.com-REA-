@@ -1,6 +1,7 @@
 import { type ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
+import { isNative } from './native/platform';
 import { ServerApi } from './server/api';
 
 export const appConfig: ApplicationConfig = {
@@ -9,6 +10,7 @@ export const appConfig: ApplicationConfig = {
     // Find out whether a Noteboard server is behind this page, and who is signed in, before routing.
     provideAppInitializer(async () => {
       const s = inject(ServerApi);
+      if (isNative()) await import('./native/shell').then((m) => m.startNativeShell()).catch((e) => console.error('native shell', e));
       await s.init();
       (window as { __nbAdminPath?: string }).__nbAdminPath = s.discovery()?.adminPath ?? '/admin';
     }),

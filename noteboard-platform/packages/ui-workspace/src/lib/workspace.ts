@@ -20,6 +20,13 @@ import { BOARD_COLORS, BOARD_ICONS, CARD_COLORS, LINE_COLORS, SCALES } from './p
 import { Settings } from './settings';
 import { Place, TOOLS, Tool, UNAVAILABLE, Workspace } from './workspace.service';
 
+/** Clipboard of the native apps (phones have no Ctrl+V); set by the app shell as `window.nbClipboard`. */
+interface NativeClipboard {
+  writeText(text: string): Promise<void>;
+  read(): Promise<{ text?: string; image?: Blob } | null>;
+}
+const nativeClipboard = () => (typeof window !== 'undefined' ? (window as { nbClipboard?: NativeClipboard }).nbClipboard : undefined);
+
 type Mode = { kind: 'default' } | { kind: 'card'; card: Card } | { kind: 'line'; arrow: Arrow } | { kind: 'multi' };
 
 @Component({
@@ -139,6 +146,22 @@ export class WorkspaceView {
 
   constructor() {
     void this.ws.init();
+    // On-screen keyboards shrink the visible area: keep the card being edited in view.
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    let full = vv?.height ?? 0;
+    addEventListener('orientationchange', () => (full = 0));
+    vv?.addEventListener('resize', () => {
+      full = Math.max(full, vv.height);
+      const id = this.ws.editing();
+      // (Android shrinks the whole page for the keyboard, iOS only the visual viewport.)
+      if (id !== null && vv.height < full * 0.85) this.ws.centerOn.set(id);
+    });
+    // A short buzz when a long press opens the menu: the apps provide `nbHaptic` (native haptics).
+    this.ctl.onLongPress = () => {
+      const w = window as { nbHaptic?: () => void };
+      if (w.nbHaptic) w.nbHaptic();
+      else navigator.vibrate?.(12);
+    };
     this.ctl.onPickFile = (tool, place) => {
       this.pendingTool = tool;
       this.pendingPlace = place;
@@ -178,6 +201,41 @@ export class WorkspaceView {
 
   @HostListener('window:pointermove', ['$event']) onMove(e: PointerEvent) {
     this.ctl.move(e);
+  }
+  /**
+   * The Android Back button (the app sends `nb-back`): closes what is open, then goes up one board.
+   * Calls preventDefault() when it did something, so the app knows not to leave the page.
+   */
+  @HostListener('window:nb-back', ['$event']) onBack(e: Event) {
+    const ws = this.ws;
+    const done = () => e.preventDefault();
+    if (ws.menu()) return void (ws.menu.set(null), done());
+    if (ws.popup()) return void (ws.popup.set(null), done());
+    if (ws.settingsOpen()) return void (ws.settingsOpen.set(false), done());
+    if (ws.showTrash()) return void (ws.showTrash.set(false), done());
+    if (ws.editing() !== null) return void (ws.stopEditing(), done());
+    if (ws.prefs().drawer_open && matchMedia('(max-width: 640px)').matches) return void (ws.setPrefs({ drawer_open: false }), done());
+    if (ws.selected().size || ws.selectedArrow() !== null) return void (ws.clearSelection(), ws.selectedArrow.set(null), done());
+    const path = ws.path();
+    if (path.length > 1) return void (ws.openBoard(path[path.length - 2].id), done());
+  }
+
+  /**
+   * Something shared to the app from another app (Android share sheet, iOS share): text and links
+   * become notes and link cards, pictures become picture cards, all in Unsorted on the current board.
+   */
+  @HostListener('window:nb-share-in', ['$event']) async onShareIn(e: Event) {
+    const d = (e as CustomEvent<{ text?: string; files?: File[] }>).detail ?? {};
+    if (!this.ws.loaded() || this.ws.loadFailed()) return; // not taken: the app tries again shortly
+    e.preventDefault(); // taken
+    if (d.text?.trim()) this.ws.createTextCard(d.text, { unsorted: true });
+    for (const f of d.files ?? []) if (f.type.startsWith('image/')) await this.ws.addPicture(f, { unsorted: true });
+    this.ws.setPrefs({ drawer_open: true });
+    this.ws.showToast('Added to Unsorted');
+  }
+
+  @HostListener('window:pointercancel', ['$event']) onCancel(e: PointerEvent) {
+    this.ctl.cancel(e);
   }
   @HostListener('window:pointerup', ['$event']) onUp(e: PointerEvent) {
     this.ctl.up(e);
@@ -391,7 +449,7 @@ export class WorkspaceView {
           this.ws.duplicate();
           break;
         case 'copy':
-          void navigator.clipboard?.writeText(this.ws.copy() ?? '').catch(() => undefined);
+          void Promise.resolve(nativeClipboard()?.writeText(this.ws.copy() ?? '') ?? navigator.clipboard?.writeText(this.ws.copy() ?? '')).catch(() => undefined);
           break;
         case 'front':
           this.ws.bringTo(true);
@@ -415,7 +473,7 @@ export class WorkspaceView {
     } else if ('canvas' in t) {
       const at = t.canvas;
       if (action.startsWith('new:')) this.ctl.createTool(action.slice(4) as Tool, { at });
-      if (action === 'paste') this.ws.paste(null, at);
+      if (action === 'paste') void this.pasteHere(at);
       if (action === 'paste-picture') void this.pastePicture(at);
       if (action === 'all') this.ws.selected.set(new Set(this.ws.board().cards.filter((c) => c.container === 'Canvas').map((c) => c.id)));
       if (action === 'fit') this.ws.fit(size);
@@ -430,7 +488,25 @@ export class WorkspaceView {
     }
   }
 
+  /** Paste from the menu: cards copied in Noteboard, otherwise the system clipboard's text (apps). */
+  private async pasteHere(at: { x: number; y: number }): Promise<void> {
+    const clip = nativeClipboard();
+    const got = clip ? await clip.read().catch(() => null) : null;
+    // paste() recognises text that is our own copy and pastes the cards instead of a note.
+    if (got?.image) await this.ws.addPicture(new File([got.image], `pasted.${got.image.type.split('/')[1] || 'png'}`, { type: got.image.type }), { at });
+    else if (got?.text) this.ws.paste(got.text, at);
+    else if (this.ws.hasClipboard()) this.ws.paste(null, at);
+    else this.ws.showToast('The clipboard is empty');
+  }
+
   private async pastePicture(at: { x: number; y: number }): Promise<void> {
+    const clip = nativeClipboard();
+    if (clip) {
+      const got = await clip.read().catch(() => null);
+      if (got?.image) await this.ws.addPicture(new File([got.image], `pasted.${got.image.type.split('/')[1] || 'png'}`, { type: got.image.type }), { at });
+      else this.ws.showToast("There's no picture on the clipboard");
+      return;
+    }
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith('image/'));

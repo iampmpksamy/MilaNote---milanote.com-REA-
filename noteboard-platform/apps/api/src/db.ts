@@ -32,7 +32,7 @@ export interface UserDoc {
 }
 
 export interface SessionDoc {
-  _id: string; // sha256 of the cookie value
+  _id: string; // sha256 of the cookie value (browser) or a random id (native app)
   userId: string;
   createdAt: Date;
   lastSeenAt: Date;
@@ -40,6 +40,14 @@ export interface SessionDoc {
   ip: string;
   userAgent: string;
   mfaPending: boolean;
+  /** Native app sessions (bearer tokens); absent for browser cookie sessions. */
+  native?: {
+    client: string; // "android", "ios", "windows" + app version, shown on the account page
+    accessHash: string; // sha256 of the current short-lived access token
+    accessExpiresAt: Date;
+    refreshHash: string; // sha256 of the current refresh token (rotated on every use)
+    prevRefreshHash: string | null; // the one before: presenting it again means it was copied
+  };
 }
 
 export interface TokenDoc {
@@ -68,6 +76,8 @@ export interface WorkspaceDoc {
   imports: unknown[];
   prefs: Record<string, unknown> | null;
   usage: { boards: number; cards: number; arrows: number; assets: number; assetBytes: number };
+  /** The last save's client operation id and the revision it produced, so a retried save is acknowledged instead of refused. */
+  lastOp?: { id: string; rev: number } | null;
   createdAt: Date;
   updatedAt: Date;
 }

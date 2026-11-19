@@ -15,7 +15,7 @@
     "integration": {
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
-      "options": { "command": "node --test --test-concurrency=1 apps/api/integration/", "cwd": "{workspaceRoot}" }
+      "options": { "command": "node --test --test-concurrency=1 apps/api/integration/*.test.mjs", "cwd": "{workspaceRoot}" }
     }
   }
 }

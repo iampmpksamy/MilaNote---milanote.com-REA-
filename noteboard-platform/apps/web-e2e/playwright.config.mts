@@ -21,5 +21,5 @@ export default defineConfig({
     reuseExistingServer: false,
     cwd: workspaceRoot,
   },
-  projects: [{ name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge', viewport: { width: 1360, height: 860 } } }],
+  projects: [{ name: 'edge', use: { ...devices['Desktop Edge'], channel: process.env.NB_CHANNEL ?? 'msedge', viewport: { width: 1360, height: 860 } } }],
 });
