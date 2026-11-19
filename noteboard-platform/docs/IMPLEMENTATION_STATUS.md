@@ -87,6 +87,7 @@ copy saved as a git stash and in `sync-backup-20261119/`).
 | API integration (`apps/api/integration`, now 2 files) | **36 / 36** pass (21 earlier + 15 native sign-in/saving) |
 | Browser, local mode | 13 / 13 pass (Chrome on Linux; Edge on Windows CI) |
 | Browser, server mode (dev stack) | 6 / 6 pass |
+| **alpha.4 Docker images** (built on the home lab, isolated stack `nbtest4` on 127.0.0.1:18767, removed afterwards; the live app untouched) — native sign-in through the real nginx gateway: discovery, CORS preflight, invitation with tokens and no cookies, bearer write, refresh rotation, sign-out | **9 / 9 pass** |
 | **Native app bundle** (`apps/web-e2e/native`, Pixel 7 emulation, real touch events, cross-origin bearer tokens against a separate dev server) | **10 / 10 pass** |
 | Lint (7 projects) | 0 errors |
 | `npm audit --omit=dev` | 0 vulnerabilities |
