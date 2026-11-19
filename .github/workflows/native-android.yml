@@ -36,7 +36,7 @@ jobs:
         working-directory: noteboard-platform/apps/mobile
       - name: Debug APK
         working-directory: noteboard-platform/apps/mobile/android
-        run: ./gradlew --no-daemon assembleDebug
+        run: bash ./gradlew --no-daemon assembleDebug
       - name: Signed release APK and AAB (only with signing secrets)
         if: env.HAS_SIGNING == 'true'
         env:
@@ -48,7 +48,7 @@ jobs:
         run: |
           echo "$NB_ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           export NB_ANDROID_KEYSTORE="$RUNNER_TEMP/upload.jks"
-          ./gradlew --no-daemon assembleRelease bundleRelease
+          bash ./gradlew --no-daemon assembleRelease bundleRelease
           rm -f "$RUNNER_TEMP/upload.jks"
       - name: Collect files and checksums
         run: |
