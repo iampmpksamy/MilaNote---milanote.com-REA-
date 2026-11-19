@@ -52,9 +52,12 @@ Home lab: Ubuntu 24.04.5, Docker 29.9.3, Compose v5.7.1, CasaOS v0.4.15, data on
 | 17 | Controlled upgrade keeps data | **Passed** | test instance switched to newer image tags (3.0.0-alpha.3-upgradetest): app containers recreated, version changed, data hashes unchanged. No breaking migration exists yet, so the pre-migration backup path is code-reviewed only |
 | 18 | Existing regression tests pass | **Passed** | Rust 18, unit 49 (incl. M1's 32), M1 browser 12 |
 
-Not done / needs your access: publishing images to GHCR happens in GitHub Actions after a version
-tag is pushed (the images on the home lab were built there from the same Dockerfiles); the Cloudflare
-hostname; a host reboot test; the CasaOS dashboard view; S3 against a real bucket; ARM64.
+Images: GitHub Actions published 3.0.0-alpha.2 to GHCR (public, pulled anonymously from the home lab)
+with SBOMs and Trivy reports; that scan found fixable HIGH/CRITICAL issues in the base images, fixed in
+3.0.0-alpha.3 (hardened images re-tested: 6/6 browser tests against a home-lab stack).
+
+Not done / needs your access: the Cloudflare hostname; a host reboot test; the CasaOS dashboard view;
+S3 against a real bucket; ARM64.
 
 ## Feature parity: Rust V2 → web (Milestone 1)
 

@@ -3,6 +3,14 @@
 Versions follow `MAJOR.MINOR.PATCH[-pre]`. Major 2 = the Rust desktop app, major 3 = the
 cross-platform platform; `-alpha.N` marks platform milestone N.
 
+## 3.0.0-alpha.3 — 2026-11-19 (Homelab Edition, hardened images)
+
+- Server image: Node 26.13.1 binary on a fully updated Alpine 3.24 without npm/yarn/corepack (removes
+  the HIGH findings the alpha.2 scan reported in npm's own undici and brace-expansion).
+- Gateway image: Alpine packages upgraded at build (alpha.2 scan: 1 critical, 12 high in brotli,
+  curl, expat and others).
+- Release assets get distinct names (noteboard-casaos.yml, noteboard-compose.yml, noteboard.env.example).
+
 ## 3.0.0-alpha.2 — 2026-11-19 (Homelab Edition)
 
 - Self-hosted server: NestJS API (`apps/api`), background worker, MongoDB 8.0 replica set, Redis 8,

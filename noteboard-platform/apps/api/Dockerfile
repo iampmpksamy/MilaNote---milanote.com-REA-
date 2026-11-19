@@ -14,7 +14,14 @@ COPY apps/api apps/api
 ARG NOTEBOARD_VERSION=0.0.0-dev
 RUN NOTEBOARD_VERSION=${NOTEBOARD_VERSION} node apps/api/build.mjs
 
-FROM ${NODE_IMAGE}
+FROM ${NODE_IMAGE} AS node
+
+# The runtime is a clean, fully updated Alpine with only the Node binary: no npm, yarn or corepack
+# (the app is one bundle and needs none of them, and they carried their own vulnerabilities).
+FROM alpine:3.24
+RUN apk upgrade --no-cache && apk add --no-cache libstdc++ libgcc libatomic tini \
+ && addgroup -g 1000 node && adduser -u 1000 -G node -s /sbin/nologin -D node
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
 ARG NOTEBOARD_VERSION=0.0.0-dev
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="noteboard-server" \
@@ -23,7 +30,7 @@ LABEL org.opencontainers.image.title="noteboard-server" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.source="https://github.com/iampmpksamy/MilaNote---milanote.com-REA-" \
       org.opencontainers.image.licenses="MIT"
-RUN apk add --no-cache tini && mkdir -p /data && chown 1000:1000 /data
+RUN mkdir -p /data && chown 1000:1000 /data && node --version
 ENV NODE_ENV=production NOTEBOARD_DATA=/data NOTEBOARD_VERSION=${NOTEBOARD_VERSION}
 WORKDIR /app
 COPY --from=build --chown=0:0 /src/dist/apps/api/ /app/

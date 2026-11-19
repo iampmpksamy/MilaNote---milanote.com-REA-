@@ -118,12 +118,18 @@ jobs:
           V="${GITHUB_REF_NAME#v}"
           awk -v v="$V" '$0 ~ "^## "v" " {p=1; next} /^## / {p=0} p' CHANGELOG.md > notes.md
           { echo; echo "### Images (linux/amd64)"; echo; echo '```'; cat out/digest-*.txt; echo '```'; } >> notes.md
+      - name: Name the deployment files so they don't overwrite each other
+        run: |
+          cp deploy/casaos/docker-compose.yml out/noteboard-casaos.yml
+          cp deploy/compose/docker-compose.yml out/noteboard-compose.yml
+          cp deploy/compose/.env.example out/noteboard.env.example
       - uses: softprops/action-gh-release@v3
         with:
           body_path: notes.md
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
-            out/*
-            deploy/casaos/docker-compose.yml
-            deploy/compose/docker-compose.yml
-            deploy/compose/.env.example
+            out/*.txt
+            out/*.json
+            out/noteboard-casaos.yml
+            out/noteboard-compose.yml
+            out/noteboard.env.example

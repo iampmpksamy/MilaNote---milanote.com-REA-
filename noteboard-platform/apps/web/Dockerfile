@@ -20,6 +20,10 @@ LABEL org.opencontainers.image.title="noteboard-gateway" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.source="https://github.com/iampmpksamy/MilaNote---milanote.com-REA-" \
       org.opencontainers.image.licenses="MIT"
+# Security updates for the base image's packages, then back to the unprivileged nginx user.
+USER root
+RUN apk upgrade --no-cache
+USER 101
 # The stock site config is replaced by ours (rendered from the template at start).
 COPY apps/web/gateway/empty.conf /etc/nginx/conf.d/default.conf
 COPY apps/web/gateway/noteboard.conf.template /etc/nginx/templates/noteboard.conf.template
