@@ -106,6 +106,13 @@ export async function checkServer(url: string, timeoutMs = 10_000): Promise<Chec
     info = (await r.json()) as ServerInfo;
   } catch (e) {
     const timeout = (e as Error)?.name === 'AbortError';
+    if (!timeout && (await answersWithoutAppAccess(url)))
+      return {
+        ok: false,
+        reason: 'server_too_old',
+        message:
+          "The server answered, but it doesn't let the apps in yet (no native sign-in). Update the Noteboard server to 3.0.0-alpha.4 or newer; the browser keeps working meanwhile.",
+      };
     return {
       ok: false,
       reason: 'unreachable',
@@ -137,4 +144,23 @@ export function upsertServer(r: Registry, url: string, info: ServerInfo): SavedS
   Object.assign(s, { url, appName: info.appName, serverVersion: info.serverVersion, publicUrl: info.publicUrl, lastUsed: Date.now() });
   r.current = id;
   return s;
+}
+
+/**
+ * After a failed check: is something answering at that address, just without letting apps read
+ * the answer (a Noteboard server older than 3.0.0-alpha.4 has no CORS for the apps)? A plain
+ * request in `no-cors` mode succeeds whenever the server answers over a trusted connection, but
+ * its content can't be read, so nothing from it is used except "it answered".
+ */
+async function answersWithoutAppAccess(url: string): Promise<boolean> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 8000);
+  try {
+    await fetch(`${url}/api/v1/health`, { mode: 'no-cors', credentials: 'omit', cache: 'no-store', signal: ctl.signal });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }

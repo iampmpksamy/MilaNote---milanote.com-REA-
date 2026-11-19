@@ -1,5 +1,6 @@
 import { type BrowserContext, type CDPSession, devices, expect, type Page, test } from '@playwright/test';
 import crypto from 'node:crypto';
+import { createServer, type Server } from 'node:http';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -67,6 +68,18 @@ function browserClient() {
   };
 }
 
+// A stand-in for a Noteboard server older than 3.0.0-alpha.4: it answers, but has no CORS for apps.
+let oldServer: Server;
+const OLD = 'http://127.0.0.1:4998';
+test.beforeAll(async () => {
+  oldServer = createServer((req, res) => {
+    if (req.method === 'OPTIONS') return void res.writeHead(404).end();
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ product: 'noteboard', apiVersion: 1, minClientApiVersion: 1, serverVersion: '3.0.0-alpha.3' }));
+  });
+  await new Promise<void>((r) => oldServer.listen(4998, '127.0.0.1', () => r()));
+});
+test.afterAll(() => oldServer?.close());
+
 test.beforeAll(async () => {
   const admin = browserClient();
   await admin('GET', '/discovery');
@@ -86,7 +99,8 @@ async function openApp(ctx: BrowserContext, platform: 'android' | 'ios' = 'andro
   await ctx.addInitScript((p) => ((window as { __nbPlatform?: string }).__nbPlatform = p), platform);
   const page = await ctx.newPage();
   page.on('console', (msg) => {
-    if (/Content Security Policy|CORS/i.test(msg.text())) throw new Error(`browser said: ${msg.text()}`);
+    // CORS refusals are only expected from the stand-in for an old server (port 4998).
+    if (/Content Security Policy|CORS/i.test(msg.text()) && !msg.text().includes('127.0.0.1:4998')) throw new Error(`browser said: ${msg.text()}`);
   });
   await page.goto('/');
   return page;
@@ -159,6 +173,10 @@ test('first launch asks for the server, suggests the home server, and checks it'
   await page.getByTestId('server-test').click();
   await expect(page.getByTestId('connect-error')).toContainText("Can't reach the server");
   await expect(page.getByTestId('server-save')).toBeDisabled();
+  // A server that answers but is too old for the apps is named as such, not as unreachable.
+  await page.getByTestId('server-url').fill(OLD);
+  await page.getByTestId('server-test').click();
+  await expect(page.getByTestId('connect-error')).toContainText("doesn't let the apps in yet");
   await connect(page);
   await expect(page.getByTestId('login-server')).toContainText(SERVER);
 });
@@ -292,6 +310,35 @@ test('switching servers: a second server is remembered separately; an unavailabl
   await loaded(page);
   await page.screenshot({ path: join(shots, 'android-switch.png') });
   await ctx.close();
+});
+
+test('the connect screen is readable in dark mode', async ({ browser }) => {
+  const c = await browser.newContext({ ...devices['Pixel 7'], colorScheme: 'dark' });
+  const p = await openApp(c);
+  await expect(p.getByTestId('server-url')).toBeVisible();
+  const look = await p.evaluate(() => {
+    const lum = (c: string) => {
+      const [r, g, b] = (c.match(/\d+(\.\d+)?/g) ?? ['0', '0', '0']).slice(0, 3).map(Number).map((v) => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: string, b: string) => {
+      const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+      return (x + 0.05) / (y + 0.05);
+    };
+    const card = getComputedStyle(document.querySelector('.nb-auth-card')!).backgroundColor;
+    const page = getComputedStyle(document.querySelector('nb-connect-page')!).backgroundColor;
+    const h1 = getComputedStyle(document.querySelector('h1')!).color;
+    const input = document.querySelector('[data-testid=server-url]')!;
+    return { pageDark: lum(page) < 0.1, h1: ratio(h1, card), inputBorder: getComputedStyle(input).borderTopStyle };
+  });
+  expect(look.pageDark).toBe(true);
+  expect(look.h1).toBeGreaterThan(4.5);
+  expect(look.inputBorder).toBe('solid');
+  await p.screenshot({ path: join(shots, 'android-connect-dark.png') });
+  await c.close();
 });
 
 test('screens: phone landscape, Android tablet, iPhone, iPad, dark theme, large text', async ({ browser }) => {
