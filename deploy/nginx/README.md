@@ -10,7 +10,8 @@ Noteboard listens on one HTTP port (8765 by default) and never takes 80/443.
 | Tailscale | `tailscale serve --bg --https=443 http://127.0.0.1:8765` |
 
 Whatever sits in front must pass `Host`, `X-Forwarded-For`, `X-Forwarded-Proto` and the WebSocket
-`Upgrade`/`Connection` headers, allow uploads up to `MAX_UPLOAD_MB`, and have a private address (so
+`Upgrade`/`Connection` headers, allow uploads up to the larger of `MAX_UPLOAD_MB` and
+`MAX_MEDIA_MB` (audio/video, 200 MB by default), and have a private address (so
 Noteboard trusts its forwarded headers; see `TRUSTED_PROXIES`). Then set the public address to the
 HTTPS address in `/admin → Settings`.
 

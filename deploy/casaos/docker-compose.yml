@@ -23,6 +23,7 @@ services:
       ADMIN_PATH: "/admin"
       ADMIN_MFA_REQUIRED: "true"
       MAX_UPLOAD_MB: "25"
+      MAX_MEDIA_MB: "200"
       STORAGE_DRIVER: "local"
       SMTP_ENABLED: "false"
       SMTP_HOST: ""
@@ -108,6 +109,7 @@ services:
       ADMIN_PATH: "/admin"
       ADMIN_MFA_REQUIRED: "true"
       MAX_UPLOAD_MB: "25"
+      MAX_MEDIA_MB: "200"
       STORAGE_DRIVER: "local"
       SMTP_ENABLED: "false"
       SMTP_HOST: ""
@@ -149,7 +151,10 @@ services:
             en_us: "invite (default), approval, open or closed"
         - container: MAX_UPLOAD_MB
           description:
-            en_us: "Largest picture upload in MB (keep the gateway value the same)"
+            en_us: "Largest picture upload in MB (the gateway allows the larger of this and MAX_MEDIA_MB)"
+        - container: MAX_MEDIA_MB
+          description:
+            en_us: "Largest audio or video upload in MB (keep the gateway NB_MAX_BODY_MB at the larger of the two)"
         - container: SMTP_ENABLED
           description:
             en_us: "true to send e-mail; the SMTP password is entered later in /admin"
@@ -186,6 +191,7 @@ services:
       ADMIN_PATH: "/admin"
       ADMIN_MFA_REQUIRED: "true"
       MAX_UPLOAD_MB: "25"
+      MAX_MEDIA_MB: "200"
       STORAGE_DRIVER: "local"
       SMTP_ENABLED: "false"
       SMTP_HOST: ""
@@ -226,7 +232,7 @@ services:
       noteboard-api:
         condition: service_healthy
     environment:
-      NB_MAX_UPLOAD_MB: "25"
+      NB_MAX_BODY_MB: "200"
       TZ: "Asia/Kolkata"
     ports:
       - "0.0.0.0:8765:8080"

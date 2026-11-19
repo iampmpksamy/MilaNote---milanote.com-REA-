@@ -3,7 +3,30 @@ import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Req, Res } f
 import type { Response } from 'express';
 import { CTX, type Ctx } from '../ctx';
 import { ApiFail, type NbRequest, needUser, notInMaintenance } from '../http';
+import type { ByteRange } from '../services/blobs';
 import { TarWriter } from '../services/tar';
+
+/**
+ * Reads an HTTP Range header for a file of `size` bytes: the one range asked for, 'unsatisfiable'
+ * (→ 416), or null to send the whole file (no header, several ranges, or a header that isn't
+ * understood: those are ignored, as HTTP allows).
+ */
+export function parseRange(header: string | undefined, size: number): ByteRange | 'unsatisfiable' | null {
+  if (!header) return null;
+  const m = /^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$/i.exec(header);
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  if (m[1] === '') {
+    // The last N bytes.
+    const n = Number(m[2]);
+    if (n === 0 || size === 0) return 'unsatisfiable';
+    return { start: Math.max(0, size - n), end: size - 1 };
+  }
+  const start = Number(m[1]);
+  const end = m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+  if (m[2] !== '' && Number(m[2]) < start) return null;
+  if (start >= size) return 'unsatisfiable';
+  return { start, end };
+}
 
 @Controller()
 export class WorkspaceRoutes {
@@ -62,25 +85,54 @@ export class WorkspaceRoutes {
   async upload(@Req() req: NbRequest, @Param('name') name: string) {
     const { user } = needUser(req);
     await notInMaintenance(this.ctx, user);
-    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ApiFail(400, 'empty', 'Send the picture as the request body with an image content type');
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0)
+      throw new ApiFail(400, 'empty', 'Send the file as the request body with an image, audio or video content type');
     const ws = await this.ctx.workspaces.forUser(user._id);
     const s = await this.ctx.settings.get();
     const quota = user.quotaBytes ?? s.defaultQuotaBytes;
-    const a = await this.ctx.workspaces.putAsset(ws, name, req.body, quota);
+    const limits = { imageMb: this.ctx.cfg.maxUploadMb, mediaMb: this.ctx.cfg.maxMediaMb };
+    const a = await this.ctx.workspaces.putAsset(ws, name, req.body, quota, String(req.headers['content-type'] ?? ''), limits);
     return { name: a.name, size: a.size, mime: a.mime };
   }
 
+  /** A stored file. Audio and video players ask for parts of it (Range) to seek. */
   @Get('assets/:name')
   async download(@Req() req: NbRequest, @Res() res: Response, @Param('name') name: string) {
     const { user } = needUser(req);
-    const found = await this.ctx.workspaces.getAsset(await this.ctx.workspaces.forUser(user._id), name);
-    if (!found) throw new ApiFail(404, 'not_found', 'No such picture');
-    res.setHeader('Content-Type', found.asset.mime);
-    res.setHeader('Content-Length', String(found.asset.size));
+    const ws = await this.ctx.workspaces.forUser(user._id);
+    const asset = await this.ctx.workspaces.findAsset(ws, name);
+    if (!asset) throw new ApiFail(404, 'not_found', 'No such file');
+    // A Range only applies to the version the player already has (If-Range with an older ETag
+    // means "send it all").
+    const ifRange = req.headers['if-range'];
+    const range = ifRange && ifRange !== `"${asset.sha256}"` ? null : parseRange(req.headers.range, asset.size);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'private, max-age=86400');
-    res.setHeader('ETag', `"${found.asset.sha256}"`);
+    res.setHeader('ETag', `"${asset.sha256}"`);
     res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Disposition', 'inline');
+    if (range === 'unsatisfiable') {
+      res.status(416).setHeader('Content-Range', `bytes */${asset.size}`);
+      res.end();
+      return;
+    }
+    const found = await this.ctx.workspaces.getAsset(ws, name, range ?? undefined);
+    if (!found) throw new ApiFail(404, 'not_found', 'No such file');
+    res.setHeader('Content-Type', asset.mime);
+    if (range) {
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${asset.size}`);
+      res.setHeader('Content-Length', String(range.end - range.start + 1));
+    } else {
+      res.setHeader('Content-Length', String(asset.size));
+    }
+    if (req.method === 'HEAD') {
+      found.stream.destroy();
+      res.end();
+      return;
+    }
+    found.stream.on('error', () => res.destroy());
     found.stream.pipe(res);
   }
 

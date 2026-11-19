@@ -4,6 +4,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
+import { maxBodyMb } from './config';
 import { CTX, type Ctx } from './ctx';
 import { migrate, SCHEMA_VERSION } from './db';
 import { ErrorFilter, requestState } from './http';
@@ -52,7 +53,8 @@ export async function start(): Promise<{ ctx: Ctx; close: () => Promise<void> }>
   app.set('trust proxy', cfg.trustedProxies);
   app.disable('x-powered-by');
   app.useBodyParser('json', { limit: '32mb' });
-  app.useBodyParser('raw', { type: ['image/*', 'application/octet-stream'], limit: `${cfg.maxUploadMb}mb` });
+  // Pictures, audio and video; each kind's own limit is checked when the file is stored.
+  app.useBodyParser('raw', { type: ['image/*', 'audio/*', 'video/*', 'application/octet-stream'], limit: `${maxBodyMb(cfg)}mb` });
   app.use('/api', requestState(ctx));
   app.getHttpAdapter()
     .getInstance()

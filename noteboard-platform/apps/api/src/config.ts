@@ -41,7 +41,10 @@ export interface Config {
   adminMfaRequired: boolean;
   cookieSecure: 'auto' | 'always' | 'never';
   trustedProxies: string[];
+  /** Largest picture upload (MB). */
   maxUploadMb: number;
+  /** Largest audio or video upload (MB). */
+  maxMediaMb: number;
   storageDriver: 'local' | 's3';
   s3: { endpoint: string; region: string; bucket: string; accessKey: string; secretKey: string; forcePathStyle: boolean };
   smtp: { enabled: boolean; host: string; port: number; secure: boolean; user: string; password: string; from: string };
@@ -55,6 +58,9 @@ export interface Config {
 
 const bool = (v: string | undefined, d: boolean) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(v));
 const int = (v: string | undefined, d: number) => (v === undefined || v === '' ? d : Number(v));
+
+/** The largest request body an upload may need (pictures or audio/video, whichever is larger). */
+export const maxBodyMb = (c: Pick<Config, 'maxUploadMb' | 'maxMediaMb'>) => Math.max(c.maxUploadMb, c.maxMediaMb);
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const dataDir = env['NOTEBOARD_DATA'] || '/data';
@@ -84,6 +90,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       .map((s) => s.trim())
       .filter(Boolean),
     maxUploadMb: int(env['MAX_UPLOAD_MB'], 25),
+    maxMediaMb: int(env['MAX_MEDIA_MB'], 200),
     storageDriver: (env['STORAGE_DRIVER'] || 'local') as Config['storageDriver'],
     s3: {
       endpoint: env['S3_ENDPOINT'] || '',
@@ -154,6 +161,7 @@ export function validateConfig(c: Config): string[] {
     e.push('ADMIN_PATH must look like /admin (letters, digits, dashes) and not clash with app routes');
   if (!['auto', 'always', 'never'].includes(c.cookieSecure)) e.push('COOKIE_SECURE must be auto, always or never');
   if (!Number.isFinite(c.maxUploadMb) || c.maxUploadMb < 1 || c.maxUploadMb > 2048) e.push('MAX_UPLOAD_MB must be 1-2048');
+  if (!Number.isFinite(c.maxMediaMb) || c.maxMediaMb < 1 || c.maxMediaMb > 4096) e.push('MAX_MEDIA_MB must be 1-4096');
   if (!['local', 's3'].includes(c.storageDriver)) e.push('STORAGE_DRIVER must be local or s3');
   if (c.storageDriver === 's3' && (!c.s3.endpoint || !c.s3.bucket || !c.s3.accessKey || !c.s3.secretKey))
     e.push('STORAGE_DRIVER=s3 needs S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY');
