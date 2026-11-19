@@ -1,0 +1,35 @@
+/* Color card (nb-color-*). Global: the component uses ViewEncapsulation.None. */
+.nb-color-body { display: block; }
+.nb-color-swatch, .nb-color-presets .nb-color-preset { box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.45); }
+.nb-color-swatch { aspect-ratio: 4 / 3; border-radius: 3px 3px 0 0; }
+.nb-color-meta { padding: 9px 12px 8px; }
+.nb-color-title { font-weight: 600; font-size: 14.5px; line-height: 1.3; overflow-wrap: anywhere; }
+.nb-color-title.empty { color: var(--nb-muted); font-weight: 500; }
+.nb-color-line { display: flex; align-items: center; gap: 6px; margin-top: 1px; }
+.nb-color-code { flex: 1; color: var(--nb-muted); font: 12.5px/1.4 ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace; user-select: text; }
+.nb-color-line .nb-color-copy { flex: none; font-size: 12px; color: var(--nb-select); padding: 2px 7px; margin-right: -5px; border-radius: 4px; touch-action: manipulation; }
+.nb-color-line .nb-color-copy:hover { background: var(--nb-hover); }
+.nb-color-form { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 7px; cursor: default; }
+.nb-color-row { display: flex; gap: 6px; }
+nb-card-view .nb-color-form input[type='text'] {
+  box-sizing: border-box; min-width: 0; height: 30px; padding: 0 8px; font-size: 13.5px;
+  background: var(--nb-canvas); border: 1px solid var(--nb-border); border-radius: 4px;
+}
+nb-card-view .nb-color-form input[type='text']:focus { border-color: var(--nb-select); }
+nb-card-view .nb-color-form .nb-color-hex { flex: 1; font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace; }
+nb-card-view .nb-color-form .nb-color-pick {
+  order: -1; flex: none; width: 38px; height: 30px; padding: 0; box-sizing: border-box; cursor: pointer;
+  background: var(--nb-canvas); border: 1px solid var(--nb-border); border-radius: 4px;
+}
+.nb-color-pick::-webkit-color-swatch-wrapper { padding: 3px; }
+.nb-color-pick::-webkit-color-swatch { border: 0; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.45); }
+.nb-color-pick::-moz-color-swatch { border: 0; border-radius: 2px; }
+.nb-color-presets { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 2px; }
+.nb-color-presets .nb-color-preset { aspect-ratio: 1; min-height: 20px; padding: 0; border-radius: 4px; touch-action: manipulation; }
+.nb-color-presets .nb-color-preset:hover { transform: scale(1.08); }
+.nb-color-presets .nb-color-preset.on { outline: 2px solid var(--nb-select); outline-offset: 1px; }
+@media (pointer: coarse) {
+  .nb-color-presets { gap: 8px; }
+  .nb-color-presets .nb-color-preset { min-height: 28px; }
+  .nb-color-line .nb-color-copy { padding: 6px 10px; }
+}
