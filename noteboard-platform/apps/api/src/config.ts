@@ -54,7 +54,23 @@ export interface Config {
   setupTokenHours: number;
   /** Origins of the native apps (Capacitor, Tauri) allowed to call the API with bearer tokens. */
   nativeOrigins: string[];
+  /** Map cards: place search and map pictures, fetched by this server (see docs/MAPS.md). */
+  map: MapConfig;
 }
+
+export type MapProvider = 'osm' | 'off';
+export interface MapConfig {
+  provider: MapProvider;
+  /** Place search address; `{q}` is replaced by the search text (or `&q=` is added). */
+  searchUrl: string;
+  /** Map picture address with `{z}`, `{x}` and `{y}`. */
+  tileUrl: string;
+  /** Where map pictures are kept (not part of backups; they can always be fetched again). */
+  cacheDir: string;
+}
+
+export const DEFAULT_MAP_SEARCH_URL = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=1&q={q}';
+export const DEFAULT_MAP_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const bool = (v: string | undefined, d: boolean) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(v));
 const int = (v: string | undefined, d: number) => (v === undefined || v === '' ? d : Number(v));
@@ -65,6 +81,7 @@ export const maxBodyMb = (c: Pick<Config, 'maxUploadMb' | 'maxMediaMb'>) => Math
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const dataDir = env['NOTEBOARD_DATA'] || '/data';
   const configDir = env['NOTEBOARD_CONFIG_DIR'] || path.join(dataDir, 'config');
+  const uploads = env['NOTEBOARD_UPLOADS_DIR'] || path.join(dataDir, 'uploads');
   const adminPath = '/' + (env['ADMIN_PATH'] || '/admin').replace(/^\/+|\/+$/g, '');
   return {
     version: VERSION,
@@ -73,7 +90,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     dirs: {
       config: configDir,
       secrets: env['NOTEBOARD_SECRETS_DIR'] || path.join(configDir, 'secrets'),
-      uploads: env['NOTEBOARD_UPLOADS_DIR'] || path.join(dataDir, 'uploads'),
+      uploads,
       backups: env['NOTEBOARD_BACKUPS_DIR'] || path.join(dataDir, 'backups'),
       logs: env['NOTEBOARD_LOGS_DIR'] || path.join(dataDir, 'logs'),
     },
@@ -131,6 +148,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean),
+    map: {
+      provider: (env['MAP_PROVIDER'] || 'osm').trim().toLowerCase() as MapProvider,
+      searchUrl: (env['MAP_SEARCH_URL'] || DEFAULT_MAP_SEARCH_URL).trim(),
+      tileUrl: (env['MAP_TILE_URL'] || DEFAULT_MAP_TILE_URL).trim(),
+      // A dot folder inside uploads: writable by the app, and backups skip dot folders.
+      cacheDir: env['MAP_CACHE_DIR'] || path.join(uploads, '.map-tiles'),
+    },
   };
 }
 
@@ -174,6 +198,12 @@ export function validateConfig(c: Config): string[] {
     new Intl.DateTimeFormat('en', { timeZone: c.tz });
   } catch {
     e.push(`TZ "${c.tz}" is not a known time zone (example: Asia/Kolkata)`);
+  }
+  if (!['osm', 'off'].includes(c.map.provider)) e.push('MAP_PROVIDER must be osm or off');
+  if (c.map.provider !== 'off') {
+    if (!/^https?:\/\/[^/\s]+/i.test(c.map.searchUrl)) e.push('MAP_SEARCH_URL must be an http(s) address');
+    if (!/^https?:\/\/[^/\s]+/i.test(c.map.tileUrl) || !['{z}', '{x}', '{y}'].every((k) => c.map.tileUrl.includes(k)))
+      e.push('MAP_TILE_URL must be an http(s) address containing {z}, {x} and {y}');
   }
   if (!Number.isInteger(c.setupTokenHours) || c.setupTokenHours < 1 || c.setupTokenHours > 168) e.push('SETUP_TOKEN_HOURS must be 1-168');
   return e;

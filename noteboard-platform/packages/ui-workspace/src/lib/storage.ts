@@ -25,6 +25,12 @@ export interface StorageAdapter {
   onExternalChange?(handler: (store: Store) => boolean): void;
   /** Where the latest changes are, for the status in the header. */
   syncStatus?(): 'saved' | 'saving' | 'offline' | 'error';
+  /**
+   * Reads something from the signed-in account's server (path relative to /api/v1, e.g.
+   * `/geo/search?q=…`), as JSON or as a Blob. Only server storage has it (map cards need it).
+   * Fails with an error carrying `status` (0 = no connection) and `code`.
+   */
+  apiGet?(path: string, as: 'json' | 'blob'): Promise<unknown>;
 }
 
 export const STORAGE = new InjectionToken<StorageAdapter>('noteboard storage');
