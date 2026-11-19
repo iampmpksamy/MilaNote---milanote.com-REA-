@@ -1,0 +1,16 @@
+# build output
+/target/
+node_modules/
+dist/
+.nx/
+.angular/
+coverage/
+test-results/
+playwright-report/
+# personal data and backups: never commit
+/backups/
+/shots/data/
+*.local.json
+.env
+.env.*
+!.env.example
