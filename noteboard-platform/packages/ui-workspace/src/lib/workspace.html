@@ -35,6 +35,8 @@
             <hr class="nb-tsep" />
           } @else if (t === 'More') {
             <button #more class="nb-tool" data-tool="More" [class.active]="ws.popup()?.kind === 'more'" title="More card types" (click)="popupFor('more', more, {})"><nb-icon name="More" /><span>More</span></button>
+          } @else if (t === 'Draw' && toolVisible(t)) {
+            <button class="nb-tool" data-tool="Draw" [class.active]="ctl.drawing()" [attr.aria-pressed]="ctl.drawing()" [title]="ctl.drawing() ? 'Stop drawing (Esc)' : 'Draw on the board'" (click)="ctl.toggleDraw()"><nb-icon name="Draw" /><span>Draw</span></button>
           } @else if (toolVisible(t)) {
             <button class="nb-tool" [attr.data-tool]="t" [class.disabled]="unavailable.includes(t)" [title]="unavailable.includes(t) ? 'Not available in this version yet' : t === 'Line' ? 'Click or drag to add a line, then drag its ends onto cards' : 'Click to add, or drag onto the board'"
               (pointerdown)="ctl.toolDown(t, $event)">
@@ -55,6 +57,9 @@
           } @else if (kindOf(c) === 'Image') {
             <button class="nb-tool" data-tool="Caption" [class.active]="ws.editing() === c.id" title="Write a caption" (click)="ws.edit(c.id)"><nb-icon name="Caption" /><span>Caption</span></button>
             <button class="nb-tool" data-tool="Replace" title="Choose another picture" (click)="replacePicture(c)"><nb-icon name="Replace" /><span>Replace</span></button>
+          } @else if (kindOf(c) === 'Sketch') {
+            <button class="nb-tool" data-tool="Edit" [class.active]="ws.editing() === c.id" title="Draw in the sketch (Enter or double-click)" (click)="ws.edit(c.id)"><nb-icon name="Edit" /><span>Edit</span></button>
+            <button class="nb-tool" data-tool="Paper" [class.active]="isSketchPaper(c)" title="White paper behind the drawing, or none" (click)="toggleSketchPaper(c)"><nb-icon name="Sketch" /><span>Paper</span></button>
           } @else if (kindOf(c) === 'Column') {
             <button class="nb-tool" data-tool="Rename" [class.active]="ws.editing() === c.id" title="Rename the column" (click)="ws.edit(c.id)"><nb-icon name="Rename" /><span>Rename</span></button>
             <button class="nb-tool" data-tool="Add note" title="Add a note to the bottom of the column" (click)="addNoteToColumn(c)"><nb-icon name="Add note" /><span>Add note</span></button>
@@ -101,7 +106,7 @@
     </button>
   </nav>
 
-  <section #canvas class="nb-canvas" [class.grid]="ws.prefs().show_grid" [style.background-size]="gridStyle().size" [style.background-position]="gridStyle().pos"
+  <section #canvas class="nb-canvas" [class.grid]="ws.prefs().show_grid" [class.drawing]="ctl.drawing()" [style.background-size]="gridStyle().size" [style.background-position]="gridStyle().pos"
     (pointerdown)="ctl.down($event)" (dblclick)="ctl.dblclick($event)" (contextmenu)="ctl.contextmenu($event)" (wheel)="ctl.wheel($event)"
     (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
     <div #world class="nb-world" [style.transform]="worldTransform()">
@@ -145,6 +150,13 @@
       @if (ctl.band; as b) {
         <div class="nb-band" [style.left.px]="b.x" [style.top.px]="b.y" [style.width.px]="b.w" [style.height.px]="b.h"></div>
       }
+      @if (ctl.drawing()) {
+        <svg class="nb-draw-layer" data-testid="draw-layer">
+          @for (p of drawPaths(); track $index) {
+            <path [attr.d]="p.d" [attr.stroke]="p.color" [attr.stroke-width]="p.width" [attr.stroke-opacity]="p.opacity" />
+          }
+        </svg>
+      }
     </div>
     @if (ws.loaded() && !canvasCards().length && !ws.board().arrows.length) {
       <div class="nb-empty">Drag a card from the toolbar, or double-click anywhere to start a note</div>
@@ -176,6 +188,27 @@
     </aside>
   }
 </div>
+
+<!-- draw mode: the pen palette -->
+@if (ctl.drawing()) {
+  @let pen = ctl.drawPen();
+  <div class="nb-popup nb-draw-palette" data-testid="draw-palette" role="toolbar" aria-label="Pen">
+    <div class="nb-draw-row">
+      @for (col of sketchColors; track col[1]) {
+        <button class="nb-draw-color" [attr.data-color]="col[1]" [class.on]="pen.color === col[1]" [style.background]="col[1]" [title]="col[0]" (click)="setPen({ color: col[1] })"></button>
+      }
+    </div>
+    <div class="nb-draw-row">
+      @for (w of widthNames; track $index) {
+        <button class="nb-draw-btn" [attr.data-width]="$index" [class.on]="pen.width === $index" [title]="w" (click)="setPen({ width: $any($index) })"><i [style.width.px]="4 + $index * 4" [style.height.px]="4 + $index * 4"></i></button>
+      }
+      <button class="nb-draw-btn text" data-pen="marker" [class.on]="pen.marker" title="Marker: wide and see-through" (click)="setPen({ marker: !pen.marker })">Marker</button>
+      <button class="nb-draw-btn" data-pen="undo" title="Take back the last stroke (Ctrl+Z)" [disabled]="!ctl.drawStrokes().length" (click)="ctl.undoStroke()"><nb-icon name="Undo" /></button>
+      <span class="nb-spacer"></span>
+      <button class="nb-draw-done" data-testid="draw-done" title="Finish drawing (Esc)" (click)="ctl.endDraw()">Done</button>
+    </div>
+  </div>
+}
 
 <!-- pickers beside the toolbar -->
 @if (ws.popup(); as p) {
@@ -272,6 +305,7 @@
         <dt>Ctrl+scroll, Ctrl+0</dt><dd>Zoom, back to 100%</dd>
         <dt>Ctrl+Shift+D</dt><dd>Light or dark</dd>
         <dt>Ctrl+Shift+&lt; or &gt;</dt><dd>Interface size</dd>
+        <dt>Draw tool</dt><dd>Draw on the board; Esc or Done to finish</dd>
         <dt>Esc</dt><dd>Finish / clear selection</dd>
       </dl>
     </div>
@@ -357,6 +391,10 @@
 }
 
 <nb-settings />
+
+@if (sketchCard(); as sc) {
+  <nb-sketch-editor [card]="sc" />
+}
 
 @if (ws.toast(); as t) {
   <div class="nb-toast" role="status">{{ t.text }} @if (t.undo && ws.canUndo()) { <button (click)="ws.undo(); ws.toast.set(null)">Undo</button> }</div>

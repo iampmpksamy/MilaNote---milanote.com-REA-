@@ -499,3 +499,25 @@ nb-icon .faint { stroke: var(--nb-muted); }
   nb-icon { width: 30px; height: 30px; } span { font-size: 11.5px; color: var(--nb-muted); }
   &:hover { background: var(--nb-hover); } }
 @media (max-width: 640px) { .nb-more-grid { grid-template-columns: repeat(4, 1fr); } }
+
+// ---------- Draw mode (the Draw tool: drawing straight on the board) ----------
+.nb-canvas.drawing { cursor: crosshair;
+  nb-card-view { cursor: crosshair; }
+  nb-card-view:hover:not(.selected) { outline: none; } }
+.nb-draw-layer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; z-index: 100003; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.nb-draw-palette { left: calc(var(--ui, 1) * 70px + 12px); top: calc(var(--ui, 1) * 44px + 10px); z-index: 40; width: max-content; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.nb-draw-row { display: flex; align-items: center; gap: 5px; }
+.nb-draw-color { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.2) !important; touch-action: manipulation;
+  &.on { box-shadow: 0 0 0 2px var(--nb-popup), 0 0 0 4px var(--nb-select); } }
+.nb-draw-btn { min-width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 5px; color: var(--nb-icon) !important; touch-action: manipulation;
+  i { display: block; border-radius: 50%; background: currentColor; }
+  nb-icon { width: 22px; height: 22px; }
+  &.text { padding: 0 7px; font-size: 12.5px !important; }
+  &:hover:not(:disabled) { background: var(--nb-hover); }
+  &.on { background: rgba(67, 120, 214, 0.16); color: var(--nb-select) !important; }
+  &:disabled { color: var(--nb-faint) !important; cursor: default; } }
+.nb-draw-done { height: 30px; padding: 0 14px; border-radius: 4px; background: var(--nb-select) !important; color: #fff !important; font-weight: 600; touch-action: manipulation; }
+@media (max-width: 640px) {
+  .nb-draw-palette { position: fixed; left: 8px; right: 8px; top: auto; width: auto; bottom: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px) + 8px); border-radius: 14px;
+    .nb-draw-row:first-child { justify-content: space-between; } }
+}
