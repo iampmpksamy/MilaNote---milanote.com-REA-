@@ -8,8 +8,10 @@
  * Every board, card, line and trash item is compared field by field against `base`: a field changed
  * on one side only takes that side's value; a field changed on both sides is a conflict:
  *
- *   - card content (note text, to-do, link, picture caption): the server's version stays, and this
- *     device's version is kept as a "Conflicting copy" card in Unsorted on the same board;
+ *   - card content (note text, to-do, link, picture caption, heading, colour, document, table cell,
+ *     media title, map place): the server's version stays, and this device's version is kept as a
+ *     "Conflicting copy" card in Unsorted on the same board;
+ *   - comments posted and strokes drawn on both devices are all kept (no conflict);
  *   - names and labels (board name, column title, line label): the server's stays, and this
  *     device's is kept as a "Conflicting copy" note in Unsorted (nothing typed is lost);
  *   - layout and style (position, size, colour, order, lock, container, line style): this device wins;
@@ -315,6 +317,55 @@ function mergeContent(b: Card['content'], l: Card['content'], r: Card['content']
     const children = mergeList(bv['children'] as number[], lv['children'] as number[], rv['children'] as number[]);
     return { content: { Column: { title: t.out['title'] as string, children } }, lost: t.conflicts.length ? 'title' : null };
   }
+  if (kind === 'Comment') {
+    // Comments from both devices are all kept (in order); "resolved" follows the last change.
+    const entries = mergeList(bv['entries'] as unknown[], lv['entries'] as unknown[], rv['entries'] as unknown[]);
+    const res = mergeFields(bv, lv, rv, ['resolved'], 'local');
+    return { content: { Comment: { entries, resolved: res.out['resolved'] } } as unknown as Card['content'], lost: null };
+  }
+  if (kind === 'Sketch') {
+    // Strokes drawn on both devices are all kept; strokes erased on one side go.
+    const strokes = mergeList(bv['strokes'] as unknown[], lv['strokes'] as unknown[], rv['strokes'] as unknown[]);
+    const rest = mergeFields(bv, lv, rv, ['aspect', 'background'], 'local');
+    return { content: { Sketch: { strokes, aspect: rest.out['aspect'], background: rest.out['background'] } } as unknown as Card['content'], lost: null };
+  }
+  if (kind === 'Table') {
+    const bc = bv['cells'] as string[][];
+    const lc = lv['cells'] as string[][];
+    const rc = rv['cells'] as string[][];
+    const t = mergeFields(bv, lv, rv, ['title'], 'remote');
+    const shape = (c: string[][]) => `${c.length}x${c.map((r) => r.length).join(',')}`;
+    if (shape(bc) === shape(lc) && shape(bc) === shape(rc)) {
+      // Same rows and columns everywhere: cell by cell.
+      let lost = t.conflicts.length > 0;
+      const cells = rc.map((row, i) =>
+        row.map((rcell, k) => {
+          const b0 = bc[i][k];
+          const l0 = lc[i][k];
+          if (l0 !== b0 && rcell === b0) return l0;
+          if (l0 !== b0 && rcell !== b0 && l0 !== rcell) lost = true;
+          return rcell;
+        }),
+      );
+      return { content: { Table: { title: t.out['title'], cells } } as unknown as Card['content'], lost: lost ? 'card' : null };
+    }
+    const c = mergeFields(bv, lv, rv, ['cells'], 'remote');
+    return { content: { Table: { title: t.out['title'], cells: c.out['cells'] } } as unknown as Card['content'], lost: t.conflicts.length || c.conflicts.length ? 'card' : null };
+  }
+  if (kind === 'Audio' || kind === 'Video') {
+    // The file (or link) and its length/shape belong together; the title is text.
+    const unit = kind === 'Audio' ? ['file', 'duration'] : ['url', 'file', 'aspect'];
+    const pick = (v: Record<string, unknown>) => Object.fromEntries(unit.map((k) => [k, v[k]]));
+    const p = mergeFields({ p: pick(bv) }, { p: pick(lv) }, { p: pick(rv) }, ['p'], 'remote');
+    const tl = mergeFields(bv, lv, rv, ['title'], 'remote');
+    return { content: { [kind]: { ...p.out.p, title: tl.out['title'] } } as unknown as Card['content'], lost: p.conflicts.length || tl.conflicts.length ? 'card' : null };
+  }
+  if (kind === 'Map') {
+    const place = (v: Record<string, unknown>) => ({ query: v['query'], lat: v['lat'], lng: v['lng'] });
+    const p = mergeFields({ p: place(bv) }, { p: place(lv) }, { p: place(rv) }, ['p'], 'remote');
+    const rest = mergeFields(bv, lv, rv, ['label', 'zoom'], 'remote');
+    return { content: { Map: { ...p.out.p, label: rest.out['label'], zoom: rest.out['zoom'] } } as unknown as Card['content'], lost: p.conflicts.length || rest.conflicts.includes('label') ? 'card' : null };
+  }
   if (kind === 'Image') {
     // The file and its shape belong together; the caption is text.
     const pic = (v: Record<string, unknown>) => ({ file: v['file'], aspect: v['aspect'] });
@@ -578,7 +629,14 @@ export function mergeStores(base: Store, local: Store, remote: Store, opts: Merg
     else if ('Link' in ct) ct.Link.title = `${tag}: ${ct.Link.title}`;
     else if ('Image' in ct) ct.Image.caption = `${tag}: ${ct.Image.caption}`;
     else if ('Column' in ct) copy.content = { Note: { text: `**${tag}**\ncolumn title: ${ct.Column.title}` } };
-    else continue;
+    else if ('Heading' in ct) ct.Heading.text = `${ct.Heading.text} (${tag})`;
+    else if ('Color' in ct) ct.Color.name = `${tag}: ${ct.Color.name}`;
+    else if ('Document' in ct) ct.Document.title = `${tag}: ${ct.Document.title}`;
+    else if ('Table' in ct) ct.Table.title = `${tag}: ${ct.Table.title}`;
+    else if ('Audio' in ct) ct.Audio.title = `${tag}: ${ct.Audio.title}`;
+    else if ('Video' in ct) ct.Video.title = `${tag}: ${ct.Video.title}`;
+    else if ('Map' in ct) ct.Map.label = `${tag}: ${ct.Map.label}`;
+    else if (!('Sketch' in ct) && !('Comment' in ct)) continue; // board cards are never copied
     b.cards.push(copy);
     b.unsorted.push(copy.id);
   }
