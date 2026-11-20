@@ -9,19 +9,37 @@
  * - Files (audio, video) go through `this.ws.addMedia(file)` → name, and `this.ws.mediaUrl(name)`.
  * - Keys typed into fields must call `this.fieldKey($event)` so board shortcuts don't fire.
  */
-import { Directive, computed, inject, input } from '@angular/core';
+import { Directive, ElementRef, afterNextRender, computed, inject, input } from '@angular/core';
 import type { Card, Content } from '@noteboard/board-model';
 import { Workspace } from '../workspace.service';
 
 @Directive()
 export abstract class CardPart<K extends keyof UnionToMap<Content>> {
   readonly ws = inject(Workspace);
+  private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  constructor() {
+    // Kinds load on demand: when one appears already in editing (just created, or double-clicked
+    // before its code arrived), put the cursor in its first field as the built-in kinds do.
+    afterNextRender(() => {
+      const el = this.hostEl.nativeElement;
+      if (!this.editing() || el.contains(document.activeElement)) return;
+      el.querySelector<HTMLElement>('textarea, input:not([type=file]):not([type=range]):not([type=color]), [contenteditable=true]')?.focus();
+    });
+  }
   readonly card = input.required<Card>();
   readonly editing = input(false);
   /** The kind this part shows. */
   protected abstract readonly kindName: K;
   /** The kind's own data, e.g. `{ text, size }` for a heading. */
-  readonly data = computed(() => (this.card().content as unknown as Record<string, UnionToMap<Content>[K]>)[this.kindName as string]);
+  // Cards are edited in place (the same object comes back), so this also follows the board's revision.
+  readonly data = computed(
+    () => {
+      this.ws.rev();
+      return (this.card().content as unknown as Record<string, UnionToMap<Content>[K]>)[this.kindName as string];
+    },
+    { equal: () => false },
+  );
 
   protected edit(f: (d: UnionToMap<Content>[K], c: Card) => void, checkpoint = false): void {
     const kind = this.kindName as string;

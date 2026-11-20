@@ -199,6 +199,21 @@ export class Workspace {
     this.rev.update((r) => r + 1);
     await this.refreshImages();
     this.loaded.set(true);
+    // The newer card kinds load on demand; fetch them quietly now so creating one is instant.
+    setTimeout(() => {
+      for (const load of [
+        () => import('./cards/heading.card'),
+        () => import('./cards/color.card'),
+        () => import('./cards/table.card'),
+        () => import('./cards/comment.card'),
+        () => import('./cards/document.card'),
+        () => import('./cards/sketch.card'),
+        () => import('./cards/audio.card'),
+        () => import('./cards/video.card'),
+        () => import('./cards/map.card'),
+      ])
+        load().catch(() => undefined);
+    }, 1500);
     if (this.dirty()) this.scheduleSave();
   }
 

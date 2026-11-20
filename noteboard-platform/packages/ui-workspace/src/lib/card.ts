@@ -1,6 +1,15 @@
 import { ApplicationRef, ChangeDetectionStrategy, Component, ElementRef, ViewEncapsulation, afterRenderEffect, computed, forwardRef, inject, input } from '@angular/core';
 import { Card, CardId, TodoItem, findCard, renderNote } from '@noteboard/board-model';
-import { AudioCard, ColorCard, CommentCard, DocumentCard, HeadingCard, MapCard, SketchCard, TableCard, VideoCard } from './cards';
+// Each kind is imported from its own file and used only inside @defer, so it loads on demand.
+import { AudioCard } from './cards/audio.card';
+import { ColorCard } from './cards/color.card';
+import { CommentCard } from './cards/comment.card';
+import { DocumentCard } from './cards/document.card';
+import { HeadingCard } from './cards/heading.card';
+import { MapCard } from './cards/map.card';
+import { SketchCard } from './cards/sketch.card';
+import { TableCard } from './cards/table.card';
+import { VideoCard } from './cards/video.card';
 import { BOARD_COLORS, CARD_COLORS, boardIsDark } from './prefs';
 import { Workspace } from './workspace.service';
 
@@ -113,15 +122,33 @@ const domainOf = (url: string) => url.trim().replace(/^[a-z]+:\/\//i, '').split(
           }
         </div>
       }
-      @case ('Heading') { <nb-heading-card [card]="c" [editing]="editing()" /> }
-      @case ('Color') { <nb-color-card [card]="c" [editing]="editing()" /> }
-      @case ('Document') { <nb-document-card [card]="c" [editing]="editing()" /> }
-      @case ('Sketch') { <nb-sketch-card [card]="c" [editing]="editing()" /> }
-      @case ('Audio') { <nb-audio-card [card]="c" [editing]="editing()" /> }
-      @case ('Video') { <nb-video-card [card]="c" [editing]="editing()" /> }
-      @case ('Map') { <nb-map-card [card]="c" [editing]="editing()" /> }
-      @case ('Comment') { <nb-comment-card [card]="c" [editing]="editing()" /> }
-      @case ('Table') { <nb-table-card [card]="c" [editing]="editing()" /> }
+      @case ('Heading') {
+        @defer (on immediate) { <nb-heading-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Color') {
+        @defer (on immediate) { <nb-color-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Document') {
+        @defer (on immediate) { <nb-document-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Sketch') {
+        @defer (on immediate) { <nb-sketch-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Audio') {
+        @defer (on immediate) { <nb-audio-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Video') {
+        @defer (on immediate) { <nb-video-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Map') {
+        @defer (on immediate) { <nb-map-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Comment') {
+        @defer (on immediate) { <nb-comment-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
+      @case ('Table') {
+        @defer (on immediate) { <nb-table-card [card]="c" [editing]="editing()" /> } @placeholder { <div class="nb-card-loading"></div> }
+      }
     }
     @if (c.locked) { <span class="nb-lock" title="Locked">🔒</span> }
   `,

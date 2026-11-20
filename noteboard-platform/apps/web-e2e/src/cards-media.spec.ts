@@ -62,6 +62,8 @@ async function add(page: Page, kind: 'Audio' | 'Video'): Promise<Locator> {
   await page.locator(`.nb-more-tool[data-tool="${kind}"]`).click();
   const card = page.locator(`nb-card-view.nb-${kind.toLowerCase()}`).nth(before);
   await expect(card).toHaveClass(/editing/);
+  // Card kinds load on demand: type once the field has the cursor, as a person would.
+  await expect(card.locator('input:not([type=file]):not([type=range]), textarea').first()).toBeFocused();
   return card;
 }
 

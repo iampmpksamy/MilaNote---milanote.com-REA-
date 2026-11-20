@@ -393,7 +393,7 @@
 <nb-settings />
 
 @if (sketchCard(); as sc) {
-  <nb-sketch-editor [card]="sc" />
+  @defer (on immediate) { <nb-sketch-editor [card]="sc" /> }
 }
 
 @if (ws.toast(); as t) {

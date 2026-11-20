@@ -39,6 +39,8 @@ async function addMap(page: Page) {
   await page.getByTestId('more-tools').locator('[data-tool="Map"]').click();
   const card = page.locator('nb-card-view.nb-map').last();
   await expect(card).toBeVisible();
+  // Card kinds load on demand: type once the field has the cursor, as a person would.
+  await expect(card.locator('input, textarea').first()).toBeFocused();
   return card;
 }
 

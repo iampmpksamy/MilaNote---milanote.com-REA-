@@ -521,3 +521,4 @@ nb-icon .faint { stroke: var(--nb-muted); }
   .nb-draw-palette { position: fixed; left: 8px; right: 8px; top: auto; width: auto; bottom: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px) + 8px); border-radius: 14px;
     .nb-draw-row:first-child { justify-content: space-between; } }
 }
+.nb-card-loading { min-height: 48px; }

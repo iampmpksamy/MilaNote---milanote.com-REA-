@@ -16,7 +16,7 @@ import { Arrow, Card, CardId, ago, findCard, getBoard, plainTitle, cardText, KIN
 import { arrowHead, lineWidth, toWorld } from '@noteboard/canvas-geometry';
 import { CanvasControl, DrawPen } from './canvas';
 import { CardView } from './card';
-import { SketchEditor } from './cards';
+import { SketchEditor } from './cards/sketch/sketch-editor';
 import { SKETCH_COLORS, WIDTH_NAMES, inkPath } from './cards/sketch/sketch-geom';
 import { Icon } from './icon';
 import { BOARD_COLORS, BOARD_ICONS, CARD_COLORS, LINE_COLORS, SCALES } from './prefs';

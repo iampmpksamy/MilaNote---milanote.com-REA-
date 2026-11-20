@@ -95,7 +95,7 @@ test('document: write with the toolbar and shortcuts, preview, close, saved', as
   await page.mouse.move(680, 500);
   await page.mouse.wheel(0, 400);
   await page.keyboard.press('Control+Equal');
-  expect(await page.locator('.nb-world').getAttribute('style')).toBe(transform);
+  await expect(page.locator('.nb-world')).toHaveAttribute('style', transform);
   await page.screenshot({ path: join(shots, 'document-editing.png') });
 
   // Preview: the notes' formatting, numbered list, link; formatting buttons are off.
