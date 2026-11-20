@@ -436,6 +436,46 @@ test('offline: the same note changed on both devices keeps both texts (conflicti
   await S.laptopCtx!.close();
 });
 
+test('safe areas: on an edge-to-edge Android tablet and phone nothing sits under the status or gesture bar', async ({ browser }) => {
+  // What Capacitor 8 injects on Android 15+ (the app is drawn edge to edge).
+  const insets = { top: 28, bottom: 24, left: 0, right: 0 };
+  for (const [name, opts] of [
+    ['tablet', { ...devices['Galaxy Tab S4'] }],
+    ['tablet-landscape', { ...devices['Galaxy Tab S4 landscape'] }],
+    ['phone', { ...devices['Pixel 7'] }],
+  ] as const) {
+    const c = await browser.newContext(opts);
+    await c.addInitScript((i) => {
+      const set = () => {
+        for (const [k, v] of Object.entries(i)) document.documentElement.style.setProperty(`--safe-area-inset-${k}`, `${v}px`);
+      };
+      if (document.documentElement) set();
+      document.addEventListener('DOMContentLoaded', set);
+    }, insets);
+    const p = await openApp(c);
+    // The connect / sign-in page.
+    const card = (await p.locator('.nb-auth-card').boundingBox())!;
+    expect(card.y, `${name}: sign-in card below the status bar`).toBeGreaterThanOrEqual(insets.top);
+    await connect(p);
+    await p.getByTestId('login-email').fill('bob@example.com');
+    await p.getByTestId('login-password').fill(PW);
+    await p.getByTestId('login-submit').click();
+    await loaded(p);
+    const vh = await p.evaluate(() => window.innerHeight);
+    for (const sel of ['.nb-crumb.current', '.nb-header .nb-iconbtn']) {
+      const b = (await p.locator(sel).first().boundingBox())!;
+      expect(b.y, `${name}: ${sel} below the status bar`).toBeGreaterThanOrEqual(insets.top);
+    }
+    const zoom = (await p.locator('.nb-zoom').boundingBox())!;
+    expect(zoom.y + zoom.height, `${name}: zoom buttons above the gesture bar`).toBeLessThanOrEqual(vh - insets.bottom + 1);
+    // The tools may scroll; scrolled to the end they stop above the gesture bar.
+    const pad = await p.locator('.nb-toolbar').evaluate((el) => parseFloat(getComputedStyle(el).paddingBottom));
+    expect(pad, `${name}: toolbar keeps clear of the gesture bar`).toBeGreaterThanOrEqual(insets.bottom);
+    await p.screenshot({ path: join(shots, `safe-area-${name}.png`) });
+    await c.close();
+  }
+});
+
 test('the connect screen is readable in dark mode', async ({ browser }) => {
   const c = await browser.newContext({ ...devices['Pixel 7'], colorScheme: 'dark' });
   const p = await openApp(c);

@@ -448,8 +448,8 @@ nb-admin-page {
 
 // ---------- native apps: server list, safe areas, phones ----------
 .nb-auth {
-  padding-top: calc(32px + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(32px + var(--nb-safe-top));
+  padding-bottom: calc(32px + var(--nb-safe-bottom));
 }
 .nb-server-list {
   list-style: none;
@@ -521,11 +521,18 @@ nb-connect-page .nb-warn[role='alert'] {
   .nb-banner {
     left: 8px;
     right: 8px;
-    top: calc(54px + env(safe-area-inset-top, 0px));
+    top: calc(54px + var(--nb-safe-top));
     transform: none;
     flex-wrap: wrap;
   }
   .nb-page {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: var(--nb-safe-top);
   }
+}
+
+// Safe areas at every width (tablets included).
+.nb-banner { top: calc(52px + var(--nb-safe-top)); }
+.nb-page { padding-top: var(--nb-safe-top); padding-left: var(--nb-safe-left); padding-right: var(--nb-safe-right); }
+@media (max-width: 640px) {
+  .nb-banner { top: calc(54px + var(--nb-safe-top)); }
 }

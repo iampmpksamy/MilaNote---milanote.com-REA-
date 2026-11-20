@@ -413,8 +413,8 @@ nb-icon .faint { stroke: var(--nb-muted); }
 @media (max-width: 640px) {
   .nb-shell { padding-bottom: 0; }
   .nb-header {
-    height: calc(#{u(48px)} + env(safe-area-inset-top, 0px));
-    padding: env(safe-area-inset-top, 0px) max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
+    height: calc(#{u(48px)} + var(--nb-safe-top));
+    padding: var(--nb-safe-top) max(8px, var(--nb-safe-right)) 0 max(8px, var(--nb-safe-left));
     gap: 0;
   }
   .nb-logo, .nb-header > .nb-vsep { display: none; }
@@ -430,10 +430,10 @@ nb-icon .faint { stroke: var(--nb-muted); }
   .nb-main { flex-direction: column-reverse; position: relative; }
   .nb-toolbar {
     width: auto;
-    height: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px));
+    height: calc(#{u(62px)} + var(--nb-safe-bottom));
     flex-direction: row;
     align-items: center;
-    padding: 0 6px env(safe-area-inset-bottom, 0px);
+    padding: 0 6px var(--nb-safe-bottom);
     overflow-x: auto;
     overflow-y: hidden;
     border-right: 0;
@@ -451,14 +451,14 @@ nb-icon .faint { stroke: var(--nb-muted); }
     left: 8px !important;
     right: 8px;
     top: auto !important;
-    bottom: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px) + 8px);
+    bottom: calc(#{u(62px)} + var(--nb-safe-bottom) + 8px);
     width: auto;
     max-height: 55vh;
     overflow-y: auto;
     border-radius: 14px;
     animation: nb-sheet 0.16s ease-out;
   }
-  .nb-header-popup { top: calc(#{u(48px)} + env(safe-area-inset-top, 0px) + 6px) !important; bottom: auto; }
+  .nb-header-popup { top: calc(#{u(48px)} + var(--nb-safe-top) + 6px) !important; bottom: auto; }
   .nb-board-swatches { grid-template-columns: repeat(7, 1fr); }
   .nb-icon-grid { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); button { height: 40px; } }
   .nb-drawer {
@@ -473,23 +473,23 @@ nb-icon .faint { stroke: var(--nb-muted); }
     border-top: 1px solid var(--nb-divider);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(12px + var(--nb-safe-bottom));
     animation: nb-sheet 0.18s ease-out;
   }
-  .nb-settings { width: 100%; height: 100%; border-radius: 0; flex-direction: column; padding: calc(14px + env(safe-area-inset-top, 0px)) 14px 14px; gap: 10px;
+  .nb-settings { width: 100%; height: 100%; border-radius: 0; flex-direction: column; padding: calc(14px + var(--nb-safe-top)) 14px 14px; gap: 10px;
     nav { width: auto; display: flex; overflow-x: auto; gap: 4px; button { width: auto; flex: none; white-space: nowrap; } } }
   .nb-trash { width: calc(100vw - 24px); }
   .nb-zoom { right: 10px; bottom: 10px; .pct { display: none; } }
   .nb-pill { top: 10px; right: 10px; }
-  .nb-toast { bottom: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px) + 16px); max-width: calc(100vw - 32px); }
+  .nb-toast { bottom: calc(#{u(62px)} + var(--nb-safe-bottom) + 16px); max-width: calc(100vw - 32px); }
 }
 @keyframes nb-sheet { from { transform: translateY(24px); opacity: 0; } }
 
 // Phones in landscape: keep the toolbar on the side (more height for the board).
 @media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
-  .nb-header { height: calc(#{u(40px)} + env(safe-area-inset-top, 0px)); }
+  .nb-header { height: calc(#{u(40px)} + var(--nb-safe-top)); }
   .nb-main { flex-direction: row; }
-  .nb-toolbar { width: u(62px); height: auto; flex-direction: column; overflow-y: auto; overflow-x: hidden; border-top: 0; border-right: 1px solid var(--nb-divider); padding: 4px 0 4px env(safe-area-inset-left, 0px); touch-action: pan-y; }
+  .nb-toolbar { width: u(62px); height: auto; flex-direction: column; overflow-y: auto; overflow-x: hidden; border-top: 0; border-right: 1px solid var(--nb-divider); padding: 4px 0 4px var(--nb-safe-left); touch-action: pan-y; }
   .nb-tool { width: calc(100% - 8px); height: u(52px); touch-action: pan-y; }
 }
 
@@ -518,10 +518,27 @@ nb-icon .faint { stroke: var(--nb-muted); }
   &:disabled { color: var(--nb-faint) !important; cursor: default; } }
 .nb-draw-done { height: 30px; padding: 0 14px; border-radius: 4px; background: var(--nb-select) !important; color: #fff !important; font-weight: 600; touch-action: manipulation; }
 @media (max-width: 640px) {
-  .nb-draw-palette { position: fixed; left: 8px; right: 8px; top: auto; width: auto; bottom: calc(#{u(62px)} + env(safe-area-inset-bottom, 0px) + 8px); border-radius: 14px;
+  .nb-draw-palette { position: fixed; left: 8px; right: 8px; top: auto; width: auto; bottom: calc(#{u(62px)} + var(--nb-safe-bottom) + 8px); border-radius: 14px;
     .nb-draw-row:first-child { justify-content: space-between; } }
 }
 .nb-card-loading { min-height: 48px; }
 
 // Draw mode: every stroke reaches the board, even one that starts over a card's buttons or a video.
 .nb-canvas.drawing nb-card-view * { pointer-events: none !important; }
+
+// ---------- safe areas on tablets and wide screens (phones have their own rules above) ----------
+@media (min-width: 641px), (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  .nb-header {
+    height: calc(#{u(44px)} + var(--nb-safe-top));
+    padding-top: var(--nb-safe-top);
+    padding-left: max(#{u(12px)}, var(--nb-safe-left));
+    padding-right: max(#{u(12px)}, var(--nb-safe-right));
+  }
+  .nb-toolbar { padding-left: var(--nb-safe-left); padding-bottom: calc(#{u(6px)} + var(--nb-safe-bottom)); }
+  .nb-tool-popup { left: calc(var(--ui, 1) * 70px + 8px + var(--nb-safe-left)); }
+  .nb-header-popup { top: calc(var(--ui, 1) * 44px + var(--nb-safe-top) + 6px); right: calc(12px + var(--nb-safe-right)); }
+  .nb-zoom { right: calc(14px + var(--nb-safe-right)); bottom: calc(14px + var(--nb-safe-bottom)); }
+  .nb-pill { right: calc(12px + var(--nb-safe-right)); }
+  .nb-drawer { padding-right: calc(16px + var(--nb-safe-right)); padding-bottom: calc(12px + var(--nb-safe-bottom)); }
+  .nb-toast { bottom: calc(22px + var(--nb-safe-bottom)); }
+}

@@ -4,7 +4,7 @@ The cross-platform successor to the Noteboard desktop app (the Rust/egui app one
 unchanged and tagged `v2-rust-baseline` in Git). One Angular workspace, shared by every client, and
 now a self-hosted server.
 
-**Status: 3.0.0-alpha.6 — Homelab Edition + native apps with offline editing and 15 card kinds.** The web app runs in two modes:
+**Status: 3.0.0-alpha.7 — Homelab Edition + native apps with offline editing and 15 card kinds.** The web app runs in two modes:
 
 - **Server mode** (Homelab Edition): served by the `noteboard-gateway` image in front of the NestJS
   API, with accounts, private boards saved to MongoDB, pictures on the NAS, `/admin`, backups and an

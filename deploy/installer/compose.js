@@ -7,7 +7,7 @@
 (function (root) {
   'use strict';
 
-  var VERSION = '3.0.0-alpha.6';
+  var VERSION = '3.0.0-alpha.7';
   var REGISTRY = 'ghcr.io/iampmpksamy';
   var MONGO = 'mongo:8.0.38';
   var REDIS = 'redis:8.10.3-alpine';

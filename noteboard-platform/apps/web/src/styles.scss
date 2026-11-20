@@ -1,6 +1,17 @@
 @use '../../../packages/ui-workspace/src/lib/workspace';
 @use './server-pages';
 
+/*
+ * Safe areas (status bar, notch, gesture bar). Android draws the app edge to edge: Capacitor gives
+ * the sizes as --safe-area-inset-* (and newer WebViews as env()); iOS uses env(). Take the larger.
+ */
+:root {
+  --nb-safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --nb-safe-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+  --nb-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  --nb-safe-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+}
+
 html,
 body {
   margin: 0;

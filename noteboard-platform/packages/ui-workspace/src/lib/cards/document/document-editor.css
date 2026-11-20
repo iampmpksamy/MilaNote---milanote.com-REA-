@@ -3,7 +3,7 @@
     .nb-doced svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .nb-doced-bar { flex: none; display: flex; align-items: center; gap: 8px; min-height: 52px; box-sizing: border-box; background: var(--nb-header);
       border-bottom: 1px solid var(--nb-divider); user-select: none; -webkit-user-select: none;
-      padding: calc(6px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 6px max(12px, env(safe-area-inset-left, 0px)); }
+      padding: calc(6px + var(--nb-safe-top)) max(12px, var(--nb-safe-right)) 6px max(12px, var(--nb-safe-left)); }
     .nb-doced button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
     .nb-doced .nb-doced-done { display: flex; align-items: center; gap: 2px; height: 34px; padding: 0 12px 0 4px; border-radius: 4px; font-weight: 600; }
     .nb-doced .nb-doced-done:hover, .nb-doced .nb-doced-btn:hover:not(:disabled), .nb-doced .nb-doced-mode button:hover { background: var(--nb-hover); }
@@ -20,7 +20,7 @@
     .nb-doced .nb-doced-mode button { height: 28px; padding: 0 12px; border-radius: 4px; font-size: 13px; color: var(--nb-muted); }
     .nb-doced .nb-doced-mode button[aria-pressed='true'] { background: var(--nb-hover); color: var(--nb-text); font-weight: 600; }
     .nb-doced-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
-      padding: 44px max(24px, env(safe-area-inset-right, 0px)) calc(96px + env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px)); }
+      padding: 44px max(24px, var(--nb-safe-right)) calc(96px + var(--nb-safe-bottom)) max(24px, var(--nb-safe-left)); }
     .nb-doced-page { max-width: 720px; margin: 0 auto; }
     .nb-doced-title, .nb-doced-text { display: block; width: 100%; box-sizing: border-box; padding: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; }
     .nb-doced-title { margin-bottom: 20px; font-size: 30px; font-weight: 600; line-height: 1.25; }
@@ -48,6 +48,6 @@
       .nb-doced-tools { order: 5; flex: 1 0 100%; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
       .nb-doced-tools { gap: 0; }
       .nb-doced .nb-doced-btn { min-width: 38px; height: 40px; padding: 0 4px; }
-      .nb-doced-scroll { padding-top: 22px; padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); }
+      .nb-doced-scroll { padding-top: 22px; padding-left: max(18px, var(--nb-safe-left)); padding-right: max(18px, var(--nb-safe-right)); }
       .nb-doced-title { font-size: 24px; margin-bottom: 14px; }
     }

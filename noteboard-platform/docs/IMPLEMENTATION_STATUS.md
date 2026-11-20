@@ -62,7 +62,7 @@ all services came back healthy (setup still waiting for the owner).
 Not done / needs your access: the Cloudflare hostname; a host reboot test; the CasaOS dashboard view;
 S3 against a real bucket; ARM64.
 
-## More card kinds (3.0.0-alpha.6) — built and tested on the home lab, 2026-11-20
+## More card kinds (3.0.0-alpha.6, released as 3.0.0-alpha.7 with the tablet safe-area fix) — 2026-11-20
 
 Heading, Colour, Document (full-screen editor with preview), Sketch (drawing editor) and **Draw**
 mode on the board, Audio (upload or record), Video (YouTube/Vimeo click-to-load or uploaded file),

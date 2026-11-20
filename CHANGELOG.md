@@ -3,7 +3,10 @@
 Versions follow `MAJOR.MINOR.PATCH[-pre]`. Major 2 = the Rust desktop app, major 3 = the
 cross-platform platform; `-alpha.N` marks platform milestone N.
 
-## 3.0.0-alpha.6 — 2026-11-20 (more card kinds)
+## 3.0.0-alpha.7 — 2026-11-20 (more card kinds, tablet safe areas)
+
+(The `v3.0.0-alpha.6` tag was stopped before release to fix the tablet layout; this is that
+version plus the fix.)
 
 - **New cards** (toolbar and the new **More** menu): Heading, Colour swatch, Document (full-screen
   editor, formatting toolbar, preview, word count), Sketch (drawing editor: colours, widths, marker,

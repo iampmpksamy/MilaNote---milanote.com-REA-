@@ -7,8 +7,8 @@ any other product are included.
 | Part | Folder | Version | State |
 | --- | --- | --- | --- |
 | Desktop app (Rust, egui/eframe) | `./` (`src/`, `Cargo.toml`) | 2.0.0 | Finished V2; 18 tests |
-| Platform (Nx: Angular web app, NestJS server, Android/iOS (Capacitor) and Windows (Tauri) apps) | `noteboard-platform/` | 3.0.0-alpha.6 | Homelab Edition + native apps (Android, Windows, iOS project) with offline editing, sync and 15 card kinds; 205 unit + 57 API + 60 browser tests |
-| Homelab install (CasaOS, Docker Compose, Portainer) | `deploy/` | 3.0.0-alpha.6 | One CasaOS tile; installed and tested on the home lab |
+| Platform (Nx: Angular web app, NestJS server, Android/iOS (Capacitor) and Windows (Tauri) apps) | `noteboard-platform/` | 3.0.0-alpha.7 | Homelab Edition + native apps (Android, Windows, iOS project) with offline editing, sync and 15 card kinds; 205 unit + 57 API + 60 browser tests |
+| Homelab install (CasaOS, Docker Compose, Portainer) | `deploy/` | 3.0.0-alpha.7 | One CasaOS tile; installed and tested on the home lab |
 
 ## Desktop app
 

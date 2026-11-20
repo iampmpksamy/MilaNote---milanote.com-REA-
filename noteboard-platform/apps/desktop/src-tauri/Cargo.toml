@@ -1,6 +1,6 @@
 [package]
 name = "noteboard-desktop"
-version = "3.0.0-alpha.6"
+version = "3.0.0-alpha.7"
 description = "Noteboard for Windows: the shared web app in a native window, connected to your own Noteboard server"
 authors = ["Noteboard"]
 license = "UNLICENSED"

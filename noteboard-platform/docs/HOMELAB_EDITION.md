@@ -1,4 +1,4 @@
-# Noteboard Homelab Edition (3.0.0-alpha.6)
+# Noteboard Homelab Edition (3.0.0-alpha.7)
 
 The self-hosted server for Noteboard: one Docker Compose application (one CasaOS tile) that holds
 everything — web app, API, background worker, MongoDB and Redis. The installation guides are in
@@ -165,7 +165,7 @@ are untouched; migrations run at start under a lock; a breaking migration takes 
 made before the upgrade into the older version. Schema 1 is the first server release, so there are no
 older server versions to roll back to yet.
 
-**Upgrading to 3.0.0-alpha.6 (new card kinds):** only the image tags need to change. New settings
+**Upgrading to 3.0.0-alpha.7 (new card kinds):** only the image tags need to change. New settings
 have safe defaults: `MAX_MEDIA_MB=100` (audio/video size), `MAP_PROVIDER=osm` (map cards fetch map
 pictures and place search from OpenStreetMap **through this server**, which therefore needs outbound
 internet; `MAP_PROVIDER=off` turns maps off — see MAPS.md). The gateway keeps an older
