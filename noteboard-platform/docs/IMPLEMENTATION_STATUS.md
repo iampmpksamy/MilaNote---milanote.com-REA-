@@ -91,6 +91,17 @@ gateway compatible with older settings; 100 MB media default for Cloudflare).
 Not verified: on real phones and the Windows/iOS apps (recording permissions, embeds on iOS — YouTube
 opens outside the iOS app by design), against the real OpenStreetMap services (tests use a fake).
 
+### Release and live upgrade (3.0.0-alpha.7, 2026-11-20)
+
+- Tag `v3.0.0-alpha.7`: docker-release, native-android, native-windows and native-ios **passed**;
+  release https://github.com/iampmpksamy/MilaNote---milanote.com-REA-/releases/tag/v3.0.0-alpha.7
+  (APK, Windows EXE/MSI, checksums, SBOMs, Trivy). `v3.0.0-alpha.6` was stopped before release (its
+  server images were pushed to GHCR but never deployed).
+- Live CasaOS app upgraded alpha.4 → alpha.7 (image tags only; backup
+  `noteboard-backup-20261120-005410-manual.tar.gz` first): all five services healthy, schema 1,
+  setup and account intact; public address reports 3.0.0-alpha.7 with maps on and 100 MB media; the
+  gateway's limit came out at 100 MB from the new start script; the server reaches OpenStreetMap.
+
 ## Offline editing (3.0.0-alpha.5) — built and tested on the home lab, 2026-11-20
 
 Design and rules: [OFFLINE_SYNC.md](OFFLINE_SYNC.md). Three-way merge in the shared model package,
