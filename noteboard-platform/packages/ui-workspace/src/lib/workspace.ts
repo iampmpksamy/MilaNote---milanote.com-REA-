@@ -210,7 +210,11 @@ export class WorkspaceView {
       window.addEventListener(
         'click',
         (ev) => {
-          if (Date.now() < this.ctl.toolbarClickGuardUntil && (ev.target as Element | null)?.closest?.('.nb-toolbar')) {
+          const g = this.ctl.toolbarClickGuard;
+          if (!g) return;
+          this.ctl.toolbarClickGuard = null; // only the very next click
+          const same = Date.now() < g.until && Math.abs(ev.clientX - g.x) < 12 && Math.abs(ev.clientY - g.y) < 12;
+          if (same && (ev.target as Element | null)?.closest?.('.nb-toolbar')) {
             ev.stopPropagation();
             ev.preventDefault();
           }
