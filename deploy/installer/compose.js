@@ -7,7 +7,7 @@
 (function (root) {
   'use strict';
 
-  var VERSION = '3.0.0-alpha.5';
+  var VERSION = '3.0.0-alpha.6';
   var REGISTRY = 'ghcr.io/iampmpksamy';
   var MONGO = 'mongo:8.0.38';
   var REDIS = 'redis:8.10.3-alpine';
@@ -23,7 +23,7 @@
     registration: 'invite',
     adminPath: '/admin',
     maxUploadMb: 25,
-    maxMediaMb: 200,
+    maxMediaMb: 100,
     smtpEnabled: false,
     smtpHost: '',
     smtpPort: 587,
@@ -299,7 +299,7 @@
         ['TZ', 'Time zone for scheduled backups'],
         ['REGISTRATION_MODE', 'invite (default), approval, open or closed'],
         ['MAX_UPLOAD_MB', 'Largest picture upload in MB (the gateway allows the larger of this and MAX_MEDIA_MB)'],
-        ['MAX_MEDIA_MB', 'Largest audio or video upload in MB (keep the gateway NB_MAX_BODY_MB at the larger of the two)'],
+        ['MAX_MEDIA_MB', 'Largest audio or video upload in MB (behind Cloudflare keep it at 100 or less: larger requests are refused there)'],
         ['SMTP_ENABLED', 'true to send e-mail; the SMTP password is entered later in /admin'],
         ['BACKUP_TIME', 'Daily backup time (HH:MM)'],
       ].forEach(function (p) {
@@ -358,7 +358,9 @@
     L.push('        condition: service_healthy');
     L.push('    environment:');
     // The gateway's request size limit: the larger of the picture and the audio/video limits.
-    L.push('      NB_MAX_BODY_MB: ' + q(C ? '${MAX_MEDIA_MB:-' + maxBody(o) + '}' : maxBody(o)));
+    // The gateway takes the larger of the picture and audio/video limits (see its entrypoint script).
+    L.push('      NB_MAX_UPLOAD_MB: ' + q(C ? '${MAX_UPLOAD_MB:-' + o.maxUploadMb + '}' : o.maxUploadMb));
+    L.push('      NB_MAX_MEDIA_MB: ' + q(C ? '${MAX_MEDIA_MB:-' + o.maxMediaMb + '}' : o.maxMediaMb));
     L.push('      TZ: ' + q(C ? '${TZ:-' + o.tz + '}' : o.tz));
     L.push('    ports:');
     L.push('      - ' + q(port));

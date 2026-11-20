@@ -2,10 +2,11 @@
  * Start-up glue for the native apps, loaded only inside them (never in the browser bundle's
  * start-up path): Back button, status bar, haptics, clipboard and things shared into the app.
  */
-import { platform } from './platform';
+import { openExternal, platform } from './platform';
 
 type W = Window & {
   nbHaptic?: () => void;
+  nbOpenExternal?: (url: string) => void;
   nbClipboard?: { writeText(t: string): Promise<void>; read(): Promise<{ text?: string; image?: Blob } | null> };
 };
 
@@ -31,6 +32,7 @@ function dataUrlToBlob(dataUrl: string): Blob | null {
 export async function startNativeShell(): Promise<void> {
   const p = platform();
   const w = window as W;
+  w.nbOpenExternal = (url) => void openExternal(url).catch(() => undefined);
   if (p === 'android' || p === 'ios') {
     const [{ App }, { Haptics, ImpactStyle }, { Clipboard }, { StatusBar, Style }, { Keyboard }] = await Promise.all([
       import('@capacitor/app'),

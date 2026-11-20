@@ -37,7 +37,8 @@ server, which asks OpenStreetMap on your behalf:
   usage policy). Searches wait for their turn for up to 3 seconds; beyond that the server answers
   `429` ("try again in a moment"). Answers are kept in memory for 24 hours (the last 1000
   searches), and the same search asked twice at the same time goes out once.
-- **Map pictures:** kept on disk for 7 days in `uploads/.map-tiles/z/x/y.png` inside the data
+- **Map pictures:** reused for 7 days (then fetched again), and deleted by the worker once nobody
+  has looked at them for 30 days; kept in `uploads/.map-tiles/z/x/y.png` inside the data
   folder (change with `MAP_CACHE_DIR`). Backups skip this folder; it can be deleted at any time.
   At most two pictures are fetched at once; only real PNG pictures (≤ 1 MB) are kept and served.
   When OpenStreetMap can't be reached, an older kept picture is served instead. The app keeps
@@ -81,7 +82,8 @@ terms. Self-hosting both keeps searches and viewed areas entirely on your networ
     request per second, a user agent that identifies the application, cache results, no bulk
     geocoding. Noteboard does all of these.
   - [Tile usage policy](https://operations.osmfoundation.org/policies/tiles/): identify the
-    application, cache tiles (Noteboard keeps them 7 days), no bulk downloading or pre-fetching,
+    application, cache tiles (Noteboard reuses them for 7 days), no bulk downloading or pre-fetching (each account may
+    fetch at most 600 map pictures and 30 searches a minute; zoom is limited to 18),
     show the attribution. Heavy use can be blocked without notice.
 - A server with many people using maps every day should use its own tile and search servers or a
   paid provider (`MAP_SEARCH_URL`, `MAP_TILE_URL`).

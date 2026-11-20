@@ -64,7 +64,9 @@
             <button class="nb-tool" data-tool="Rename" [class.active]="ws.editing() === c.id" title="Rename the column" (click)="ws.edit(c.id)"><nb-icon name="Rename" /><span>Rename</span></button>
             <button class="nb-tool" data-tool="Add note" title="Add a note to the bottom of the column" (click)="addNoteToColumn(c)"><nb-icon name="Add note" /><span>Add note</span></button>
           } @else {
-            <button #b3 class="nb-tool" data-tool="Color" [class.active]="ws.popup()?.kind === 'card-color'" title="Card color" (click)="popupFor('card-color', b3, { card: c.id })"><span class="nb-swatch-icon" [style.background]="cardColor(c)"></span><span>Color</span></button>
+            @if (hasCardColor(c)) {
+              <button #b3 class="nb-tool" data-tool="Color" [class.active]="ws.popup()?.kind === 'card-color'" title="Card color" (click)="popupFor('card-color', b3, { card: c.id })"><span class="nb-swatch-icon" [style.background]="cardColor(c)"></span><span>Color</span></button>
+            }
             @if (kindOf(c) === 'Todo') {
               <button class="nb-tool" data-tool="Add task" title="Add a task at the end" (click)="addTask(c)"><nb-icon name="Add task" /><span>Add task</span></button>
             }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkStore } from './check';
+import { importDesktopStore, validateDesktopFile } from './importer';
 import { mergeStores } from './merge';
 import { getBoard, newId, sampleStore } from './ops';
 import type { Card, Content, Store } from './types';
@@ -79,5 +80,56 @@ describe('merging the new card kinds', () => {
       expect(JSON.stringify(m.store), kind).toContain('laptop');
       expect(checkStore(clone(m.store)).ok, kind).toBe(true);
     }
+  });
+});
+
+describe('limits: merges and imports always produce something the server accepts', () => {
+  it('a conflicting copy of a name at the length limit still passes the server check', () => {
+    const b = sampleStore();
+    const id = add(b, { Color: { hex: '#111111', name: 'x'.repeat(195) } });
+    const l = clone(b);
+    const r = clone(b);
+    data<{ name: string }>(l, id).name = 'p'.repeat(199);
+    data<{ name: string }>(r, id).name = 'l'.repeat(199);
+    const m = mergeStores(b, l, r, { label: 'Android, 20 Nov 2026, 14:05' });
+    expect(checkStore(clone(m.store)).ok).toBe(true);
+    expect(copies(m.store).length).toBe(1);
+  });
+
+  it('strokes added on both devices past the limit are capped, not refused', () => {
+    const b = sampleStore();
+    const stroke = (i: number) => ({ color: '#000000', width: 4, points: [i, i, i + 1, i + 1] });
+    const id = add(b, { Sketch: { strokes: Array.from({ length: 4000 }, (_, i) => stroke(i)), aspect: 0.75, background: true } });
+    const l = clone(b);
+    const r = clone(b);
+    data<{ strokes: unknown[] }>(l, id).strokes.push(...Array.from({ length: 600 }, (_, i) => stroke(10_000 + i)));
+    data<{ strokes: unknown[] }>(r, id).strokes.push(...Array.from({ length: 600 }, (_, i) => stroke(20_000 + i)));
+    const m = mergeStores(b, l, r);
+    expect(checkStore(clone(m.store)).ok).toBe(true);
+    expect(data<{ strokes: unknown[] }>(m.store, id).strokes.length).toBe(5000);
+  });
+
+  it('every kind survives export → import, with its audio and video files listed', () => {
+    const s = sampleStore();
+    const contents: Content[] = [
+      { Heading: { text: 'Title', size: 2 } },
+      { Color: { hex: '#123abc', name: 'Sea' } },
+      { Document: { title: 'Doc', text: '# Hello' } },
+      { Sketch: { strokes: [{ color: '#000000', width: 3, points: [0, 0, 5, 5], marker: true }], aspect: 0.5, background: false } },
+      { Audio: { file: '9-abcd1234.webm', title: 'Voice', duration: 3 } },
+      { Video: { url: 'https://youtu.be/x', file: '10-abcd1234.mp4', title: 'Clip', aspect: 0.56 } },
+      { Map: { query: 'Paris', label: 'Paris', lat: 48.85, lng: 2.35, zoom: 12 } },
+      { Comment: { entries: [{ text: 'hi', author: 'Ann', at: 5 }], resolved: true } },
+      { Table: { title: 'T', cells: [['a', 'b'], ['c']] } },
+    ];
+    for (const c of contents) add(s, c);
+    const report = validateDesktopFile(JSON.stringify(s));
+    expect(report.ok, JSON.stringify(report.issues)).toBe(true);
+    expect(report.images).toEqual(expect.arrayContaining(['9-abcd1234.webm', '10-abcd1234.mp4']));
+    const target = sampleStore();
+    importDesktopStore(target, report, 'Imported');
+    expect(checkStore(clone(target)).ok).toBe(true);
+    const all = JSON.stringify(target);
+    for (const word of ['Title', 'Sea', '# Hello', 'Voice', 'Clip', 'Paris', '"hi"', '"c",""']) expect(all, word).toContain(word);
   });
 });

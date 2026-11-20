@@ -4,7 +4,7 @@
  * save only rewrites the boards that changed, inside a transaction with a revision check.
  */
 import crypto from 'node:crypto';
-import type { AnyBulkWriteOperation } from 'mongodb';
+import { type AnyBulkWriteOperation, BSON } from 'mongodb';
 import type { Board, Store } from '@noteboard/board-model';
 import { STORE_VERSION } from '@noteboard/board-model';
 import { sha256, uuid } from '../crypto';
@@ -85,6 +85,9 @@ export class Workspaces {
       keep.add(b.id);
       const h = hashBoard(b);
       if (existing.get(b.id) === h) continue;
+      // Each board is one database document (MongoDB allows 16 MB): say which one is too big.
+      if (BSON.calculateObjectSize({ data: b }) > 15 * 1024 * 1024)
+        throw new ApiFail(413, 'board_too_large', `The board "${b.name}" is too large to save (over 15 MB). Move some cards, sketches or documents to another board.`);
       const doc: BoardDoc = { _id: `${ws._id}:${b.id}`, workspaceId: ws._id, boardId: b.id, hash: h, data: b, updatedAt: now };
       ops.push({ replaceOne: { filter: { _id: doc._id, workspaceId: ws._id }, replacement: doc, upsert: true } });
     }

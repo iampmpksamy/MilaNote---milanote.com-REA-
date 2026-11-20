@@ -10,6 +10,7 @@
  */
 import { migrate, newId } from './ops';
 import { Arrow, Board, Card, CardId, Content, STORE_VERSION, Store, TodoItem, isColumnContainer } from './types';
+import { clampContent } from './limits';
 
 export interface ImportIssue {
   level: 'error' | 'warning';
@@ -60,6 +61,20 @@ const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFi
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 const pair = (v: unknown): [number, number] | null => (Array.isArray(v) && v.length === 2 ? [num(v[0]), num(v[1])] : null);
 
+/** Content of the newer kinds, cut to the server's limits. */
+function fit(c: Content): Content {
+  clampContent(c);
+  return c;
+}
+
+/** Stored files a card refers to (pictures, audio, video). */
+export function cardFiles(c: Content): string[] {
+  if ('Image' in c) return [c.Image.file];
+  if ('Audio' in c && c.Audio.file) return [c.Audio.file];
+  if ('Video' in c && c.Video.file) return [c.Video.file];
+  return [];
+}
+
 function normContent(raw: unknown, issues: ImportIssue[], where: string): Content | null {
   if (!isObj(raw)) {
     issues.push({ level: 'error', message: `${where}: card has no content` });
@@ -83,6 +98,43 @@ function normContent(raw: unknown, issues: ImportIssue[], where: string): Conten
       return { Board: { board: num(o['board']) } };
     case 'Column':
       return { Column: { title: str(o['title']), children: Array.isArray(o['children']) ? o['children'].map((c) => num(c)) : [] } };
+    // Kinds added in 3.0.0-alpha.6 (exports from this app; the desktop app 2.x doesn't have them).
+    case 'Heading':
+      return fit({ Heading: { text: str(o['text']), size: ([1, 2, 3].includes(num(o['size'])) ? num(o['size']) : 1) as 1 | 2 | 3 } });
+    case 'Color': {
+      const hex = str(o['hex']);
+      return fit({ Color: { hex: /^#[0-9a-f]{6}$/i.test(hex) ? hex.toLowerCase() : '#5c7ff5', name: str(o['name']) } });
+    }
+    case 'Document':
+      return fit({ Document: { title: str(o['title']), text: str(o['text']) } });
+    case 'Sketch': {
+      const strokes = Array.isArray(o['strokes'])
+        ? o['strokes'].filter(isObj).map((st) => ({
+            color: str(st['color'], '#000000').slice(0, 32),
+            width: num(st['width'], 4),
+            points: Array.isArray(st['points']) ? st['points'].map((p) => num(p)) : [],
+            ...(st['marker'] === true ? { marker: true } : {}),
+          }))
+        : [];
+      return fit({ Sketch: { strokes, aspect: num(o['aspect'], 0.75) || 0.75, background: o['background'] !== false } });
+    }
+    case 'Audio':
+      return fit({ Audio: { file: str(o['file']), title: str(o['title']), duration: num(o['duration']) } });
+    case 'Video':
+      return fit({ Video: { url: str(o['url']), file: str(o['file']), title: str(o['title']), aspect: num(o['aspect'], 0.5625) || 0.5625 } });
+    case 'Map': {
+      const coord = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+      return fit({ Map: { query: str(o['query']), label: str(o['label']), lat: coord(o['lat']), lng: coord(o['lng']), zoom: num(o['zoom'], 13) } });
+    }
+    case 'Comment': {
+      const entries = Array.isArray(o['entries']) ? o['entries'].filter(isObj).map((e) => ({ text: str(e['text']), author: str(e['author']), at: num(e['at']) })) : [];
+      return fit({ Comment: { entries, resolved: o['resolved'] === true } });
+    }
+    case 'Table': {
+      const cells = Array.isArray(o['cells']) ? o['cells'].map((r) => (Array.isArray(r) ? r.map((x) => str(x)) : [])) : [];
+      const width = Math.max(1, ...cells.map((r) => r.length));
+      return fit({ Table: { title: str(o['title']), cells: (cells.length ? cells : [['']]).map((r) => [...r, ...Array(width - r.length).fill('')]) } });
+    }
     default:
       issues.push({ level: 'error', message: `${where}: unknown card type "${kind}"` });
       return null;
@@ -199,7 +251,7 @@ export function validateDesktopFile(text: string, target?: StoreWithImports, ava
       maxId = Math.max(maxId, c.id);
       report.byKind[Object.keys(c.content)[0]] = (report.byKind[Object.keys(c.content)[0]] ?? 0) + 1;
       if ('Board' in c.content && !boards[String(c.content.Board.board)]) issues.push({ level: 'warning', message: `A board card in "${b.name}" points to a missing board; it will open an empty one.` });
-      if ('Image' in c.content) report.images.push(c.content.Image.file);
+      report.images.push(...cardFiles(c.content));
       if ('Column' in c.content) {
         const missing = c.content.Column.children.filter((k) => !ids.has(k));
         if (missing.length) issues.push({ level: 'warning', message: `A column in "${b.name}" lists ${missing.length} card(s) that aren't there; they're skipped.` });
@@ -219,7 +271,7 @@ export function validateDesktopFile(text: string, target?: StoreWithImports, ava
   }
   for (const t of store.trash) {
     maxId = Math.max(maxId, t.id, ...t.cards.map((c) => c.id));
-    for (const c of t.cards) if ('Image' in c.content) report.images.push(c.content.Image.file);
+    for (const c of t.cards) report.images.push(...cardFiles(c.content));
   }
   store.next_id = Math.max(store.next_id, maxId);
   migrate(store);

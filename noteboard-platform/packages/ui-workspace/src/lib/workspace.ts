@@ -185,6 +185,16 @@ export class WorkspaceView {
 
   constructor() {
     void this.ws.init();
+    // The board moves only by its transform. Focusing a field near an edge can make the browser
+    // scroll the clipped canvas itself, which would shift every later touch: undo that at once.
+    afterRenderEffect(() => {
+      const el = this.canvasRef().nativeElement;
+      if ((el as { nbScrollGuard?: boolean }).nbScrollGuard) return;
+      (el as { nbScrollGuard?: boolean }).nbScrollGuard = true;
+      el.addEventListener('scroll', () => {
+        if (el.scrollLeft || el.scrollTop) el.scrollTo(0, 0);
+      });
+    });
     // On-screen keyboards shrink the visible area: keep the card being edited in view.
     const vv = typeof window !== 'undefined' ? window.visualViewport : null;
     let full = vv?.height ?? 0;
@@ -235,7 +245,7 @@ export class WorkspaceView {
     afterRenderEffect(() => {
       const input = this.searchInput()?.nativeElement;
       if (input && !this.searchFocused) {
-        input.focus();
+        input.focus({ preventScroll: true });
         this.searchFocused = true;
       } else if (!input) this.searchFocused = false;
     });
@@ -253,6 +263,8 @@ export class WorkspaceView {
   @HostListener('window:nb-back', ['$event']) onBack(e: Event) {
     const ws = this.ws;
     const done = () => e.preventDefault();
+    const rec = ws.activeRecording();
+    if (rec) return void (rec(), done());
     if (ws.menu()) return void (ws.menu.set(null), done());
     if (ws.popup()) return void (ws.popup.set(null), done());
     if (ws.settingsOpen()) return void (ws.settingsOpen.set(false), done());
@@ -311,7 +323,16 @@ export class WorkspaceView {
     }
     this.ws.paste(e.clipboardData?.getData('text/plain') ?? null, this.ctl.pasteAt());
   }
+  /** Closing, reloading or switching away: a drawing in progress becomes its card (and is saved). */
+  @HostListener('window:pagehide') onPageHide() {
+    if (this.ctl.drawing()) this.ctl.endDraw();
+  }
+  @HostListener('document:visibilitychange') onVisibility() {
+    if (document.visibilityState === 'hidden' && this.ctl.drawing()) this.ctl.endDraw();
+  }
+
   @HostListener('window:beforeunload') onLeave() {
+    if (this.ctl.drawing()) this.ctl.endDraw();
     if (this.ws.dirty()) void this.ws.saveNow();
   }
 
@@ -454,7 +475,7 @@ export class WorkspaceView {
     }
     this.ws.updateCard(id, (c) => 'Note' in c.content && (c.content.Note.text = out), true);
     queueMicrotask(() => {
-      ta.focus();
+      ta.focus({ preventScroll: true });
       ta.setSelectionRange(a, b);
     });
   }
@@ -580,6 +601,13 @@ export class WorkspaceView {
 
   pct(): string {
     return `${Math.round(this.ws.view().zoom * 100)}%`;
+  }
+
+  /** Kinds whose background follows the card colour (headings, pictures, videos, maps, colour swatches and transparent drawings don't). */
+  hasCardColor(c: Card): boolean {
+    const k = kindOf(c.content);
+    if (k === 'Heading' || k === 'Video' || k === 'Map' || k === 'Color') return false;
+    return !('Sketch' in c.content) || c.content.Sketch.background;
   }
 
   cardColor(c: Card): string {

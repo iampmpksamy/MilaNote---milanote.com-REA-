@@ -75,49 +75,7 @@ const MAX_RECORDING_S = 60 * 60;
       <input #picker type="file" accept="audio/*" hidden (change)="picked($event)" />
     </div>
   `,
-  styles: `
-    .nb-audio { padding: 10px 12px; font-size: 14px; }
-    .nb-audio-editing { display: flex; flex-direction: column; gap: 8px; }
-    .nb-audio-title-edit { font-weight: 600 !important; font-size: 14.5px !important; padding: 2px 0 !important; }
-    .nb-audio-player { display: flex; align-items: center; gap: 10px; }
-    .nb-audio-main { flex: 1; min-width: 0; }
-    .nb-audio-label { font-weight: 600; font-size: 14px; line-height: 1.3; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .nb-audio-empty .nb-audio-label { margin-bottom: 8px; color: var(--nb-muted); font-weight: 500; }
-    .nb-audio-play {
-      flex: none; width: 36px; height: 36px; border-radius: 50% !important; display: grid; place-items: center;
-      background: var(--nb-text) !important; color: var(--nb-card) !important;
-      svg { width: 15px; height: 15px; fill: currentColor; }
-      &:not(.on) svg { margin-left: 2px; }
-      &:disabled { opacity: 0.35; cursor: default; }
-      &:focus-visible { outline: 2px solid var(--nb-select); outline-offset: 2px; }
-    }
-    .nb-audio-seekrow { display: flex; align-items: center; gap: 8px; height: 20px; }
-    nb-card-view .nb-audio-seek { flex: 1; min-width: 40px; height: 16px; margin: 0; padding: 0; accent-color: var(--nb-text); cursor: pointer; touch-action: none; }
-    .nb-audio-time { flex: none; font-size: 11.5px; color: var(--nb-muted); font-variant-numeric: tabular-nums; }
-    .nb-audio-missing { font-size: 12.5px; color: var(--nb-muted); }
-    .nb-audio-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .nb-audio-btn {
-      display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px !important; border-radius: 4px !important;
-      border: 1px solid var(--nb-border) !important; font-size: 13px !important; white-space: nowrap;
-      svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-      &:hover { background: var(--nb-hover) !important; }
-    }
-    .nb-audio-quiet { border-color: transparent !important; color: var(--nb-muted) !important; align-self: flex-start; padding: 0 4px !important; }
-    .nb-audio-dot { width: 9px; height: 9px; border-radius: 50%; background: #e0443a; flex: none; }
-    .nb-audio-rec {
-      display: flex; align-items: center; gap: 8px; min-height: 36px;
-      .nb-audio-dot { animation: nb-audio-blink 1.2s ease-in-out infinite; }
-      .nb-audio-time { font-size: 13px; color: var(--nb-text); }
-    }
-    .nb-audio-grow { flex: 1; color: var(--nb-muted); font-size: 12.5px; }
-    .nb-audio-stop { border-color: #e0443a !important; color: #e0443a !important; }
-    @keyframes nb-audio-blink { 50% { opacity: 0.25; } }
-    @media (pointer: coarse) {
-      .nb-audio-btn { height: 34px; }
-      .nb-audio-play { width: 40px; height: 40px; }
-      nb-card-view .nb-audio-seek { height: 24px; }
-    }
-  `,
+  styleUrl: './audio.card.css',
 })
 export class AudioCard extends CardPart<'Audio'> {
   protected readonly kindName = 'Audio' as const;
@@ -189,7 +147,8 @@ export class AudioCard extends CardPart<'Audio'> {
         el.pause();
         releasePlayback(el);
       }
-      this.discardRecording();
+      // Leaving the screen (another board, Back, into a column) keeps what was recorded.
+      if (this.recorder) this.stopRecording();
     });
   }
 
@@ -322,6 +281,7 @@ export class AudioCard extends CardPart<'Audio'> {
       void this.store(blob, extensionFor('', mime), seconds, voiceNoteTitle());
     };
     this.recorder = rec;
+    this.ws.activeRecording.set(() => this.stopRecording());
     this.recStream = stream;
     this.recStarted = Date.now();
     this.recSeconds.set(0);
@@ -346,13 +306,7 @@ export class AudioCard extends CardPart<'Audio'> {
     this.recStream = null;
     this.recorder = null;
     this.recording.set(false);
+    this.ws.activeRecording.set(null);
   }
 
-  /** The card went away while recording: stop without keeping anything. */
-  private discardRecording(): void {
-    const rec = this.recorder;
-    this.recorder = null;
-    if (rec && rec.state !== 'inactive') rec.stop();
-    this.endRecording();
-  }
 }

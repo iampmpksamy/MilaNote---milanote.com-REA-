@@ -62,6 +62,35 @@ all services came back healthy (setup still waiting for the owner).
 Not done / needs your access: the Cloudflare hostname; a host reboot test; the CasaOS dashboard view;
 S3 against a real bucket; ARM64.
 
+## More card kinds (3.0.0-alpha.6) — built and tested on the home lab, 2026-11-20
+
+Heading, Colour, Document (full-screen editor with preview), Sketch (drawing editor) and **Draw**
+mode on the board, Audio (upload or record), Video (YouTube/Vimeo click-to-load or uploaded file),
+Map (place search and map pictures through the server, OpenStreetMap), Comment threads and Table —
+from the new **More** menu and the toolbar (Comment, Table and Draw are no longer greyed out).
+Original designs; each kind is its own component, loaded on demand.
+
+How it was built: scaffolding (model kinds and limits, menu, icons, CSP, permissions), then seven
+agents in separate git worktrees (one per feature group, each with its own tests), merged; then an
+independent four-angle review (security, data safety, deployment, touch) with a skeptic re-checking
+every finding: 18 confirmed, 2 rejected — all 18 fixed (e.g. an over-long video link or a merge
+past a size limit could stop all saving → limits are now applied before every save; imports didn't
+know the new kinds; a recording was lost when its card left the screen; refused uploads were
+forgotten; a focused field could shift every later touch; restoring a backup with large files was
+quadratic — 60 MB now 0.24 s instead of 79 s; map proxy per-account limits and cache pruning;
+gateway compatible with older settings; 100 MB media default for Cloudflare).
+
+| Suite | Result |
+| --- | --- |
+| Unit and component (board-model 111 incl. merge of the new kinds, ui-workspace 66, geometry 8, web 3, api 17) | **205 / 205** |
+| API integration (incl. media sniffing/ranges/limits, map proxy with a fake OpenStreetMap) | **57 / 57** |
+| Browser, local mode (incl. one file per new kind, touch and phone width) | **38 / 38** |
+| Browser, server mode / map server mode / native app | 6 / 6, 3 / 3, 13 / 13 |
+| Lint (7 projects) | 0 errors |
+
+Not verified: on real phones and the Windows/iOS apps (recording permissions, embeds on iOS — YouTube
+opens outside the iOS app by design), against the real OpenStreetMap services (tests use a fake).
+
 ## Offline editing (3.0.0-alpha.5) — built and tested on the home lab, 2026-11-20
 
 Design and rules: [OFFLINE_SYNC.md](OFFLINE_SYNC.md). Three-way merge in the shared model package,
@@ -245,8 +274,16 @@ those parts don't exist yet. Browser tests ran in Edge only (Firefox/Safari not 
     screen (no Android App Links / iOS Universal Links yet — they need files on the server domain and
     signing).
 13. The Admin panel opens in the system browser from the apps.
+14. The legacy desktop app 2.x can't open boards that contain the new card kinds (alpha.6).
+15. iPhone/iPad app: YouTube videos open in YouTube/Safari instead of playing inside the card.
+16. Map cards need the server to reach OpenStreetMap; set `MAP_PROVIDER=off` to disable them.
 
 ## Changelog
+
+### Platform 3.0.0-alpha.6 (2026-11-20) — more card kinds
+- Heading, Colour, Document, Sketch + Draw, Audio, Video, Map, Comment, Table; More menu; media
+  uploads with ranges; map proxy; review fixes (limits before saving, importer, recordings, uploads,
+  focus, restore speed, gateway compatibility).
 
 ### Platform 3.0.0-alpha.5 (2026-11-20) — offline editing
 - Device copy per server+account, three-way merge with conflicting copies, offline start in the apps,

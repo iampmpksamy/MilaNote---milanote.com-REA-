@@ -32,7 +32,7 @@ export const isNative = () => platform() !== 'web';
 export const isMobile = () => platform() === 'android' || platform() === 'ios';
 
 /** Version of this app build, sent to the server so the account page can name the device. */
-export const APP_VERSION = '3.0.0-alpha.5';
+export const APP_VERSION = '3.0.0-alpha.6';
 
 export function appLabel(): string {
   const p = platform();

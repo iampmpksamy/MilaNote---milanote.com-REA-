@@ -29,6 +29,7 @@
  *
  * The result always satisfies the model's invariants (repairStore), so the server accepts it.
  */
+import { clampStore } from './limits';
 import { type Arrow, type Board, type BoardId, type Card, type CardId, isColumnContainer, type Store, type TrashItem } from './types';
 
 export interface MergeConflict {
@@ -648,6 +649,8 @@ export function mergeStores(base: Store, local: Store, remote: Store, opts: Merg
   }
 
   repairStore(out);
+  // Combined lists and tagged copies can go past the server's limits: fit them, so the result saves.
+  clampStore(out);
   return { store: out, conflicts, renumbered, changed: j(out) !== j(R) };
 }
 

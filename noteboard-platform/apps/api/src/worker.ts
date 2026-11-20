@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import { SCHEMA_VERSION, schemaVersion } from './db';
 import { connectAll } from './runtime';
+import { pruneTiles } from './routes/geo';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -38,6 +39,7 @@ async function main() {
   };
   await beat();
   const beatTimer = setInterval(beat, 30_000);
+  let lastTilePrune = 0;
 
   const runBackup = async (kind: 'scheduled' | 'manual', by: string) => {
     try {
@@ -65,6 +67,11 @@ async function main() {
       } catch (e) {
         log(`bad job ignored: ${(e as Error).message}`);
       }
+    }
+    if (cfg.map.provider !== 'off' && Date.now() - lastTilePrune > 86_400_000) {
+      lastTilePrune = Date.now();
+      const n = await pruneTiles(cfg.map.cacheDir).catch(() => 0);
+      if (n) log(`removed ${n} map pictures not looked at for 30 days`);
     }
     if (Date.now() - lastCheck > 60_000) {
       lastCheck = Date.now();

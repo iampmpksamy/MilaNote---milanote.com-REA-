@@ -3,7 +3,7 @@ import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { emptyStore, importDesktopStore, type ImportReport, type Store, type StoreWithImports, validateDesktopFile } from '@noteboard/board-model';
+import { type Card, emptyStore, importDesktopStore, type ImportReport, type Store, type StoreWithImports, validateDesktopFile } from '@noteboard/board-model';
 import { IndexedDbStorage } from '@noteboard/ui-workspace';
 import { saveFile } from '../native/platform';
 import { api, apiBlob, ServerApi } from './api';
@@ -172,9 +172,14 @@ export class AccountPage implements OnInit {
       const target: StoreWithImports = ws.store ?? (emptyStore() as StoreWithImports);
       // Picture names get a prefix so they can't collide with pictures already in the account.
       const prefix = `local-${Date.now().toString(36)}-`;
+      const renameCard = (c: Card) => {
+        if ('Image' in c.content) c.content.Image.file = prefix + c.content.Image.file;
+        if ('Audio' in c.content && c.content.Audio.file) c.content.Audio.file = prefix + c.content.Audio.file;
+        if ('Video' in c.content && c.content.Video.file) c.content.Video.file = prefix + c.content.Video.file;
+      };
       const rename = (s: Store) => {
-        for (const b of Object.values(s.boards)) for (const c of b.cards) if ('Image' in c.content) c.content.Image.file = prefix + c.content.Image.file;
-        for (const t of s.trash) for (const c of t.cards) if ('Image' in c.content) c.content.Image.file = prefix + c.content.Image.file;
+        for (const b of Object.values(s.boards)) b.cards.forEach(renameCard);
+        for (const t of s.trash) t.cards.forEach(renameCard);
       };
       rename(l.report.store);
       for (const name of l.images) {

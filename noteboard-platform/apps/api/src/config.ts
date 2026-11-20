@@ -107,7 +107,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       .map((s) => s.trim())
       .filter(Boolean),
     maxUploadMb: int(env['MAX_UPLOAD_MB'], 25),
-    maxMediaMb: int(env['MAX_MEDIA_MB'], 200),
+    // 100 MB: Cloudflare (free plans) refuses larger requests, and most installs are behind it.
+    maxMediaMb: int(env['MAX_MEDIA_MB'], 100),
     storageDriver: (env['STORAGE_DRIVER'] || 'local') as Config['storageDriver'],
     s3: {
       endpoint: env['S3_ENDPOINT'] || '',

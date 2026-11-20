@@ -3,6 +3,26 @@
 Versions follow `MAJOR.MINOR.PATCH[-pre]`. Major 2 = the Rust desktop app, major 3 = the
 cross-platform platform; `-alpha.N` marks platform milestone N.
 
+## 3.0.0-alpha.6 — 2026-11-20 (more card kinds)
+
+- **New cards** (toolbar and the new **More** menu): Heading, Colour swatch, Document (full-screen
+  editor, formatting toolbar, preview, word count), Sketch (drawing editor: colours, widths, marker,
+  eraser, undo) and **Draw** directly on the board, Audio (upload or record a voice note), Video
+  (YouTube/Vimeo, loaded only when clicked, or an uploaded file), Map (place search and map pictures
+  from OpenStreetMap through your own server), Comment threads (post, delete, resolve) and Table
+  (keyboard navigation, add/remove rows and columns). Touch and phone layouts included.
+- **Sync:** comments and sketch strokes from two devices are combined; tables merge cell by cell;
+  every new kind gets a conflicting copy when changed in both places.
+- **Server:** audio and video uploads (content-checked, `MAX_MEDIA_MB`, default 100), video served
+  with HTTP ranges, map search and pictures proxy (`MAP_PROVIDER`, `MAP_SEARCH_URL`, `MAP_TILE_URL`,
+  per-account limits, disk cache pruned after 30 days), clear error for a board over 15 MB, streaming
+  backup restore (large files no longer slow), gateway reads old and new upload settings.
+- **Safety:** size limits applied before every save (one oversized card can't stop syncing); imports
+  and exports carry all kinds and their files; recordings kept when their card leaves the screen;
+  refused uploads kept and reported; CSP allows only the YouTube (no-cookie) and Vimeo players.
+- **Tests:** unit 205, API 57, browser 38 + 6 + 3 + 13; independent review: 18 issues found, fixed.
+- 3.0.0-alpha.5 (offline editing, below) is released together with this version.
+
 ## 3.0.0-alpha.5 — 2026-11-20 (offline editing)
 
 - **Offline editing in the apps:** boards open without a connection from the copy kept on the

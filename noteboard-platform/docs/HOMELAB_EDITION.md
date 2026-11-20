@@ -1,4 +1,4 @@
-# Noteboard Homelab Edition (3.0.0-alpha.5)
+# Noteboard Homelab Edition (3.0.0-alpha.6)
 
 The self-hosted server for Noteboard: one Docker Compose application (one CasaOS tile) that holds
 everything — web app, API, background worker, MongoDB and Redis. The installation guides are in
@@ -85,7 +85,7 @@ Everything above runs on every start and changes nothing that is already right.
 | With e-mail | invitation and reset links can be mailed; `/forgot`; self-registered accounts confirm their address (48 h link) |
 | Roles | `super_admin` (everything), `admin` (accounts, invitations, audit, health), `user`. Only the super admin changes roles, settings, branding, backups; nobody can demote themselves or suspend themselves |
 | Privacy | every board/picture query is scoped to the signed-in user's workspace. Administrators get counts (boards, cards, picture bytes) — **no route returns another person's boards or pictures**. Tested |
-| Uploads | content sniffed (PNG, JPEG, GIF, WebP, BMP, ICO only — no SVG), size limit `MAX_UPLOAD_MB` at the gateway and API, per-account quota, stored under server-made names, served with `Content-Security-Policy: sandbox` and `nosniff` |
+| Uploads | content sniffed (pictures: PNG, JPEG, GIF, WebP, BMP, ICO — no SVG; audio: MP3, M4A, Ogg, WAV, FLAC, WebM; video: MP4/MOV, WebM), limits `MAX_UPLOAD_MB` (pictures, default 25) and `MAX_MEDIA_MB` (audio/video, default 100 — Cloudflare refuses larger requests), large bodies accepted only from signed-in sessions, video served with HTTP ranges, per-account quota, stored under server-made names, served with `Content-Security-Policy: sandbox` and `nosniff` |
 | Links | `javascript:`, `data:` and other unsafe schemes in link cards are blanked on save |
 | Headers | CSP (`script-src 'self'`, no inline script), `frame-ancestors 'none'`, `X-Frame-Options DENY`, `nosniff`, `Referrer-Policy same-origin`, COOP; API answers `Cache-Control: no-store` |
 | Proxies | `TRUSTED_PROXIES` (default: loopback and private ranges) decides whose `X-Forwarded-*` are believed; the `Secure` cookie follows the forwarded protocol (`COOKIE_SECURE=auto`) |
@@ -165,11 +165,17 @@ are untouched; migrations run at start under a lock; a breaking migration takes 
 made before the upgrade into the older version. Schema 1 is the first server release, so there are no
 older server versions to roll back to yet.
 
+**Upgrading to 3.0.0-alpha.6 (new card kinds):** only the image tags need to change. New settings
+have safe defaults: `MAX_MEDIA_MB=100` (audio/video size), `MAP_PROVIDER=osm` (map cards fetch map
+pictures and place search from OpenStreetMap **through this server**, which therefore needs outbound
+internet; `MAP_PROVIDER=off` turns maps off — see MAPS.md). The gateway keeps an older
+`NB_MAX_UPLOAD_MB` working and uses the larger of the picture and audio/video limits. The legacy
+desktop app 2.x can't read boards containing the new card kinds.
+
 ## 10. Limits of this release
 
-- Saving is whole-store with revision check (fine for personal boards); simultaneous editing of the
-  same account in two windows shows a conflict instead of merging. Real-time collaboration and offline
-  sync are future milestones.
+- Saving is whole-store with revision check; changes from two windows or devices are merged
+  (OFFLINE_SYNC.md). Real-time collaboration is a future milestone.
 - Backups are logical (Extended JSON); very large databases take longer than `mongodump` would.
 - S3 storage uses a built-in minimal SigV4 client; it was **not** tested against a real S3 service.
 - ARM64 images are not built (not validated).

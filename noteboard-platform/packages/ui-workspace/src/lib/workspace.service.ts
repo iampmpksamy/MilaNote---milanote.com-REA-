@@ -433,6 +433,26 @@ export class Workspace {
     this.focusItem.set(null);
   }
 
+  /**
+   * Update a card wherever it is (any board, or the trash) — for work that finishes after the
+   * person moved on, like a recording saved when its card left the screen.
+   */
+  updateCardAnywhere(id: CardId, f: (c: Card) => void, checkpoint = false): void {
+    this.change((s) => {
+      for (const b of Object.values(s.boards)) {
+        const c = findCard(b, id);
+        if (c) return f(c);
+      }
+      for (const t of s.trash) {
+        const c = t.cards.find((x) => x.id === id);
+        if (c) return f(c);
+      }
+    }, checkpoint);
+  }
+
+  /** A recording in progress (Back stops and keeps it instead of leaving the board). */
+  readonly activeRecording = signal<(() => void) | null>(null);
+
   /** Update a card's content while typing (the undo step was taken when editing began). */
   updateCard(id: CardId, f: (c: Card) => void, checkpoint = false): void {
     this.change((_, b) => {
@@ -559,6 +579,9 @@ export class Workspace {
    * a random part, so devices adding files offline at the same time can't overwrite each other's.
    */
   async addMedia(file: Blob, ext: string): Promise<string> {
+    // Checked here so a card never points at a file the server will refuse (limit from the server).
+    const max = (globalThis as { nbMaxMediaMb?: number }).nbMaxMediaMb;
+    if (max && file.size > max * 1024 * 1024) throw new Error(`The file is larger than this server accepts (${max} MB)`);
     const rnd = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, '0')).join('');
     const name = `${newId(this.data)}-${rnd}.${ext.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin'}`;
     await this.storage.putImage(name, file);

@@ -120,6 +120,8 @@ export class BoardsPage {
   constructor() {
     // Comments are signed with the account's name (read by the workspace when it starts).
     (globalThis as { nbAuthorName?: string }).nbAuthorName = this.server.me()?.name ?? 'You';
+    // Audio and video larger than the server accepts are refused before they reach a card.
+    (globalThis as { nbMaxMediaMb?: number }).nbMaxMediaMb = (this.server.discovery()?.features as { maxMediaMb?: number } | undefined)?.maxMediaMb;
     // The session was ended elsewhere (found out when the connection came back): sign in again.
     // Unsent changes stay on this device and are merged after signing in to the same account.
     effect(() => {
@@ -152,7 +154,7 @@ export class BoardsPage {
   }
 
   async signOut() {
-    if (this.remote && (await this.remote.hasUnsynced()) && !confirm('Some changes on this device have not reached the server yet (no connection). Signing out deletes them from this device. Sign out anyway?')) return;
+    if (this.remote && (await this.remote.hasUnsynced()) && !confirm('Some changes or files on this device have not reached the server yet (no connection, or a file the server refused). Signing out deletes them from this device. Sign out anyway?')) return;
     await this.remote?.forget();
     await this.server.logout();
     await this.router.navigateByUrl('/login');

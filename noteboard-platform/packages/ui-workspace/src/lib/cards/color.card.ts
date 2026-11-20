@@ -156,7 +156,7 @@ export class ColorCard extends CardPart<'Color'> {
       e.stopPropagation();
       this.commitHex(e);
       const name = (e.target as HTMLElement).closest('.nb-color-form')?.querySelector<HTMLInputElement>('.nb-color-name');
-      name?.focus();
+      name?.focus({ preventScroll: true });
       return;
     }
     this.fieldKey(e);

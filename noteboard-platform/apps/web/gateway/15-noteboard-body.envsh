@@ -1,0 +1,10 @@
+#!/bin/sh
+# Sourced by the nginx image before the template is rendered: the request size limit is the
+# largest of NB_MAX_BODY_MB, NB_MAX_UPLOAD_MB (older installs) and NB_MAX_MEDIA_MB, so an install
+# upgraded with its old settings still accepts audio and video.
+max=${NB_MAX_BODY_MB:-100}
+for v in "${NB_MAX_UPLOAD_MB:-0}" "${NB_MAX_MEDIA_MB:-0}"; do
+  case "$v" in ''|*[!0-9]*) continue ;; esac
+  [ "$v" -gt "$max" ] && max=$v
+done
+export NB_MAX_BODY_MB=$max

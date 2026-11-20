@@ -30,6 +30,8 @@ export interface Replica {
 export interface StoredAsset {
   blob: Blob;
   pending: boolean;
+  /** Why the server refused it for good (too big, not a supported file, over quota). Kept here. */
+  refused?: string;
 }
 
 const DB = 'noteboard-replica';
@@ -78,6 +80,16 @@ export async function assetNames(key: string, pendingOnly = false): Promise<stri
   if (!pendingOnly) return names;
   const out: string[] = [];
   for (const n of names) if ((await readAsset(key, n))?.pending) out.push(n);
+  return out;
+}
+
+/** Files the server refused for good: they exist only on this device. */
+export async function refusedAssets(key: string): Promise<{ name: string; reason: string }[]> {
+  const out: { name: string; reason: string }[] = [];
+  for (const n of await assetNames(key)) {
+    const a = await readAsset(key, n);
+    if (a?.refused) out.push({ name: n, reason: a.refused });
+  }
   return out;
 }
 

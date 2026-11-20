@@ -167,7 +167,8 @@ describe('maps on (fake OpenStreetMap)', () => {
       assert.equal(r.data.error.code, 'bad_tile');
     }
     assert.equal((await c.get('/api/v1/geo/tile/0/0/0.png')).status, 200);
-    assert.equal((await c.get('/api/v1/geo/tile/19/524287/524287.png')).status, 200);
+    assert.equal((await c.get('/api/v1/geo/tile/18/262143/262143.png')).status, 200);
+    assert.equal((await c.get('/api/v1/geo/tile/19/524287/524287.png')).status, 400, 'the cards zoom to 18 at most');
   });
 
   it('never passes on something that is not a picture', async () => {

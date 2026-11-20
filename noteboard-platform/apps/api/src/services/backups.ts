@@ -15,6 +15,7 @@ import { type BackupDoc, type Database, DATA_COLLECTIONS, SCHEMA_VERSION, schema
 import type { Kv } from '../kv';
 import { type AppSecrets, readSecrets, secretsFile, writeFileAtomic } from '../secrets';
 import { readTarGz, TarWriter } from './tar';
+import { pipeline } from 'node:stream/promises';
 
 export const BACKUP_RE = /^noteboard-backup-(\d{8})-(\d{6})-(scheduled|manual|pre-migration|pre-restore)\.tar\.gz$/;
 
@@ -233,6 +234,15 @@ export class Backups {
     const own = new Set<string>(DATA_COLLECTIONS);
     for (const coll of DATA_COLLECTIONS) if (coll !== 'backups') await this.d.db.collection(coll).deleteMany({});
     await readTarGz(file, async (e, body) => {
+      // Uploaded files (pictures, audio, video) go straight to disk without being held in memory.
+      if (e.name.startsWith('uploads/') && this.cfg.storageDriver === 'local') {
+        const target = path.join(this.cfg.dirs.uploads, ...e.name.slice('uploads/'.length).split('/'));
+        if (!target.startsWith(path.resolve(this.cfg.dirs.uploads))) throw new Error(`unsafe path ${e.name}`);
+        await fs.promises.mkdir(path.dirname(target), { recursive: true });
+        await pipeline(body, fs.createWriteStream(target, { mode: 0o640 }));
+        files++;
+        return;
+      }
       const chunks: Buffer[] = [];
       for await (const c of body) chunks.push(c as Buffer);
       const data = Buffer.concat(chunks);
@@ -246,12 +256,6 @@ export class Backups {
         const coll = this.d.db.collection(dbm[1]);
         for (let i = 0; i < docs.length; i += 500) await coll.insertMany(docs.slice(i, i + 500) as never[]);
         counts[dbm[1]] = docs.length;
-      } else if (e.name.startsWith('uploads/') && this.cfg.storageDriver === 'local') {
-        const target = path.join(this.cfg.dirs.uploads, ...e.name.slice('uploads/'.length).split('/'));
-        if (!target.startsWith(path.resolve(this.cfg.dirs.uploads))) throw new Error(`unsafe path ${e.name}`);
-        await fs.promises.mkdir(path.dirname(target), { recursive: true });
-        await fs.promises.writeFile(target, data, { mode: 0o640 });
-        files++;
       } else if (e.name === 'config/keys.json') {
         const keys = JSON.parse(data.toString('utf8')) as Pick<AppSecrets, 'encryptionKey' | 'sessionSecret'>;
         const cur = readSecrets(this.cfg.dirs.secrets);

@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { MapConfig } from '../config';
 import { CTX, type Ctx } from '../ctx';
-import { ApiFail, type NbRequest, needUser } from '../http';
+import { ApiFail, limit, type NbRequest, needUser } from '../http';
 
 export const GEO_USER_AGENT = 'Noteboard self-hosted (https://github.com/iampmpksamy/MilaNote---milanote.com-REA-)';
 const SEARCH_GAP_MS = 1000;
@@ -87,7 +87,11 @@ class Gate {
   private readonly waiting: (() => void)[] = [];
   constructor(private readonly n: number) {}
   async run<T>(f: () => Promise<T>): Promise<T> {
-    if (this.running >= this.n) await new Promise<void>((r) => this.waiting.push(r));
+    if (this.running >= this.n) {
+      // A long queue means someone is fetching far more than a person browsing a map would.
+      if (this.waiting.length >= 64) throw new ApiFail(429, 'busy', 'The map is busy; try again in a moment');
+      await new Promise<void>((r) => this.waiting.push(r));
+    }
     this.running++;
     try {
       return await f();
@@ -150,7 +154,7 @@ export function parseTile(zs: string, xs: string, ys: string): { z: number; x: n
   const z = Number(zs);
   const x = Number(xs);
   const y = Number(m[1]);
-  if (z < 0 || z > 19) return null;
+  if (z < 0 || z > 18) return null; // the cards zoom to 18 at most
   const n = 2 ** z;
   return x < n && y < n ? { z, x, y } : null;
 }
@@ -183,8 +187,10 @@ export class GeoRoutes {
 
   @Get('search')
   async search(@Req() req: NbRequest, @Query('q') qIn: unknown): Promise<Place[]> {
-    needUser(req);
+    const { user } = needUser(req);
     this.on();
+    // Per person, so one account can't use up the server's share of the free search service.
+    await limit(this.ctx, `geo:search:${user._id}`, 30, 60, 'Too many map searches; wait a minute');
     const q = (typeof qIn === 'string' ? qIn : '').replace(/\s+/g, ' ').trim();
     if (!q) return [];
     if (q.length > 200) throw new ApiFail(400, 'too_long', 'Search for at most 200 characters');
@@ -224,10 +230,12 @@ export class GeoRoutes {
 
   @Get('tile/:z/:x/:y')
   async tile(@Req() req: NbRequest, @Res() res: Response, @Param('z') zs: string, @Param('x') xs: string, @Param('y') ys: string) {
-    needUser(req);
+    const { user } = needUser(req);
     this.on();
+    // Generous for browsing (a map card needs about a dozen), far below bulk downloading.
+    await limit(this.ctx, `geo:tile:${user._id}`, 600, 60, 'Too many map pictures at once; wait a minute');
     const t = parseTile(zs, xs, ys);
-    if (!t) throw new ApiFail(400, 'bad_tile', 'That is not a map tile (zoom 0-19, x and y within the map)');
+    if (!t) throw new ApiFail(400, 'bad_tile', 'That is not a map tile (zoom 0-18, x and y within the map)');
     const file = path.join(this.cfg.cacheDir, String(t.z), String(t.x), `${t.y}.png`);
     let stale: Buffer | null = null;
     try {
@@ -284,4 +292,36 @@ export class GeoRoutes {
       return null;
     }
   }
+}
+
+/**
+ * Deletes kept map pictures older than `maxAgeDays` (run daily by the worker). The cache only holds
+ * what people actually looked at; this keeps it from growing for ever. Returns files removed.
+ */
+export async function pruneTiles(dir: string, maxAgeDays = 30): Promise<number> {
+  const cutoff = Date.now() - maxAgeDays * 86_400_000;
+  let removed = 0;
+  const walk = async (d: string): Promise<void> => {
+    let entries: fs.Dirent[];
+    try {
+      entries = await fs.promises.readdir(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) {
+        await walk(p);
+        await fs.promises.rmdir(p).catch(() => undefined); // only succeeds when empty
+      } else if (e.isFile()) {
+        const st = await fs.promises.stat(p).catch(() => null);
+        if (st && st.mtimeMs < cutoff) {
+          await fs.promises.rm(p, { force: true });
+          removed++;
+        }
+      }
+    }
+  };
+  await walk(dir);
+  return removed;
 }

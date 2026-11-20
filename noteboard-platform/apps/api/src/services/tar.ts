@@ -83,37 +83,78 @@ export interface TarEntry {
   size: number;
 }
 
-/** Calls `onEntry` for every file in a .tar.gz with a readable for its content (must be consumed). */
+/**
+ * Calls `onEntry` for every file in a .tar.gz with a readable for its content, streamed in pieces
+ * (large audio/video files are never held whole in memory). The content not read by `onEntry` is
+ * skipped. Linear time: chunks are queued, never concatenated over and over.
+ */
 export async function readTarGz(file: string, onEntry: (e: TarEntry, body: Readable) => Promise<void>): Promise<void> {
   const src = fs.createReadStream(file).pipe(zlib.createGunzip());
-  let buf = Buffer.alloc(0);
   const it = src[Symbol.asyncIterator]();
+  const chunks: Buffer[] = [];
+  let have = 0;
   let ended = false;
-  const need = async (n: number) => {
-    while (buf.length < n && !ended) {
+  const fill = async (n: number) => {
+    while (have < n && !ended) {
       const r = await it.next();
       if (r.done) ended = true;
-      else buf = Buffer.concat([buf, r.value as Buffer]);
+      else {
+        chunks.push(r.value as Buffer);
+        have += (r.value as Buffer).length;
+      }
     }
-    return buf.length >= n;
+    return have >= n;
   };
+  /** Takes exactly n buffered bytes (n <= have) as pieces. */
+  function* take(n: number): Generator<Buffer> {
+    let left = n;
+    while (left > 0) {
+      const c = chunks[0];
+      if (c.length <= left) {
+        chunks.shift();
+        have -= c.length;
+        left -= c.length;
+        yield c;
+      } else {
+        chunks[0] = c.subarray(left);
+        have -= left;
+        yield c.subarray(0, left);
+        left = 0;
+      }
+    }
+  }
+  const read = (n: number) => Buffer.concat([...take(n)]);
   for (;;) {
-    if (!(await need(512))) break;
-    const h = buf.subarray(0, 512);
-    buf = buf.subarray(512);
+    if (!(await fill(512))) break;
+    const h = read(512);
     if (h.every((b) => b === 0)) break;
     const str = (o: number, l: number) => h.toString('utf8', o, o + l).replace(/\0.*$/s, '');
     const size = parseInt(str(124, 12).trim() || '0', 8);
     const prefix = str(345, 155);
     const name = (prefix ? prefix + '/' : '') + str(0, 100);
     const type = String.fromCharCode(h[156] || 48);
-    const padded = size + ((512 - (size % 512)) % 512);
-    if (!(await need(padded))) throw new Error('backup file is truncated');
-    const body = buf.subarray(0, size);
-    buf = buf.subarray(padded);
+    const pad = (512 - (size % 512)) % 512;
+    let left = size;
+    // The entry's content, handed out as it arrives.
+    async function* body(): AsyncGenerator<Buffer> {
+      while (left > 0) {
+        if (!have && !(await fill(1))) throw new Error('backup file is truncated');
+        const n = Math.min(left, have, 1 << 20);
+        for (const c of take(n)) yield c;
+        left -= n;
+      }
+    }
+    // One reader per entry: what the callback didn't read is drained from the same stream.
+    const stream = Readable.from(body());
     if (type === '0' || type === '\0') {
       if (name.startsWith('/') || name.split('/').includes('..')) throw new Error(`unsafe path in archive: ${name}`);
-      await onEntry({ name, size }, Readable.from([Buffer.from(body)]));
+      await onEntry({ name, size }, stream);
+    }
+    if (!stream.readableEnded && !stream.destroyed) for await (const _ of stream) void _;
+    if (left > 0) throw new Error('backup file could not be read to the end of an entry');
+    if (pad) {
+      if (!(await fill(pad))) throw new Error('backup file is truncated');
+      for (const _ of take(pad)) void _;
     }
   }
 }

@@ -8,6 +8,9 @@ import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { CardPart } from './card-part';
 import { claimPlayback, domainOf, extensionFor, parseVideoLink, parseWebUrl, pauseAll, probeMedia, releasePlayback, titleFromFileName } from './media/media';
 
+/** The server's limit for a video link (longer ones would make every save fail). */
+const MAX_URL = 2000;
+
 @Component({
   selector: 'nb-video-card',
   encapsulation: ViewEncapsulation.None,
@@ -54,7 +57,7 @@ import { claimPlayback, domainOf, extensionFor, parseVideoLink, parseWebUrl, pau
         @default {
           @if (!editing()) {
             <div class="nb-video-empty">
-              <input class="nb-field" data-field="url" placeholder="Paste a YouTube or Vimeo link" [value]="d.url" (pointerdown)="$event.stopPropagation()"
+              <input class="nb-field" data-field="url" placeholder="Paste a YouTube or Vimeo link" maxlength="2000" [value]="d.url" (pointerdown)="$event.stopPropagation()"
                 (keydown)="urlKey($event)" (change)="setUrl($event, true)" (paste)="pasted($event)" />
               <button class="nb-video-btn" data-action="upload" (pointerdown)="$event.stopPropagation()" (click)="picker.click()">
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3M4.5 6.5 8 3l3.5 3.5M3 13h10" /></svg>Upload video
@@ -66,7 +69,7 @@ import { claimPlayback, domainOf, extensionFor, parseVideoLink, parseWebUrl, pau
       @if (editing()) {
         <div class="nb-video-form">
           <span class="nb-muted">Video link</span>
-          <input class="nb-field" data-field="url" placeholder="Paste a YouTube or Vimeo link" [value]="d.url" (input)="setUrl($event)" (keydown)="fieldKey($event)" />
+          <input class="nb-field" data-field="url" placeholder="Paste a YouTube or Vimeo link" maxlength="2000" [value]="d.url" (input)="setUrl($event)" (keydown)="fieldKey($event)" />
           @if (d.url.trim()) {
             <div class="nb-video-hint" [class.ok]="link()">{{ link() ? link()!.provider + ' video ✓' : safeUrl() ? 'Not a YouTube or Vimeo video: shown as a link' : 'Not a web address' }}</div>
           }
@@ -87,43 +90,7 @@ import { claimPlayback, domainOf, extensionFor, parseVideoLink, parseWebUrl, pau
       <input #picker type="file" accept="video/*" hidden (change)="picked($event)" />
     </div>
   `,
-  styles: `
-    .nb-video { font-size: 14px; }
-    .nb-video-frame { position: relative; display: block; width: 100%; background: #111; border-radius: 3px 3px 0 0; overflow: hidden; }
-    .nb-video-frame video, .nb-video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: #000; }
-    .nb-video-note { position: absolute; inset: 0; display: grid; place-items: center; color: #b9bcc2; font-size: 13px; padding: 0 16px; text-align: center; }
-    .nb-video-poster { background: linear-gradient(160deg, #2b2e35, #121316); color: #fff; }
-    .nb-video-big {
-      position: absolute; left: 50%; top: 50%; width: 64px; height: 44px; margin: -30px 0 0 -32px; border-radius: 12px !important;
-      display: grid; place-items: center; background: rgba(255, 255, 255, 0.14) !important; color: #fff !important; transition: background 0.12s, transform 0.12s;
-      svg { width: 22px; height: 22px; fill: currentColor; }
-      &:hover { background: #e0443a !important; transform: scale(1.05); }
-      &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-    }
-    .nb-video-caption {
-      position: absolute; left: 12px; right: 12px; bottom: 10px; line-height: 1.3; pointer-events: none;
-      b, span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-      b { font-size: 14px; font-weight: 600; }
-      span { font-size: 11.5px; color: rgba(255, 255, 255, 0.6); }
-    }
-    .nb-video-foot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; min-height: 18px; }
-    .nb-video-grow { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .nb-video-open { flex: none; color: var(--nb-select); font-size: 12.5px; text-decoration: none; }
-    .nb-video-link { display: flex; gap: 10px; padding: 12px 14px 4px; }
-    .nb-video-tile { flex: none; width: 36px; height: 36px; border-radius: 6px; display: grid; place-items: center; background: #3a3d44; color: #fff; font-size: 14px; }
-    .nb-video-title { font-weight: 600; font-size: 14.5px; overflow-wrap: anywhere; }
-    .nb-video-empty { padding: 14px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-    .nb-video-form { padding: 10px 14px 12px; display: flex; flex-direction: column; align-items: stretch; .nb-field { margin-bottom: 4px; } > .nb-muted { margin-top: 4px; } }
-    nb-card-view .nb-video .nb-field { padding: 6px 8px; background: var(--nb-canvas); }
-    .nb-video-hint { font-size: 12px; color: var(--nb-muted); margin-bottom: 2px; &.ok { color: #3c9a5f; } }
-    .nb-video-btn {
-      display: inline-flex; align-items: center; align-self: flex-start; gap: 6px; height: 28px; margin-top: 6px; padding: 0 10px !important;
-      border: 1px solid var(--nb-border) !important; border-radius: 4px !important; font-size: 13px !important; white-space: nowrap;
-      svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-      &:hover { background: var(--nb-hover) !important; }
-    }
-    @media (pointer: coarse) { .nb-video-btn { height: 34px; } .nb-video-big { width: 72px; height: 50px; margin: -32px 0 0 -36px; } }
-  `,
+  styleUrl: './video.card.css',
 })
 export class VideoCard extends CardPart<'Video'> {
   protected readonly kindName = 'Video' as const;
@@ -194,6 +161,14 @@ export class VideoCard extends CardPart<'Video'> {
     const l = this.link();
     if (!l) return;
     pauseAll();
+    // In the iPhone/iPad app the page has no web address of its own, which YouTube's player
+    // refuses: open the video in YouTube/Safari there instead of an embedded player.
+    if ((globalThis as { __nbPlatform?: string }).__nbPlatform === 'ios' && l.provider === 'YouTube') {
+      const open = (globalThis as { nbOpenExternal?: (u: string) => void }).nbOpenExternal;
+      if (open) open(this.rawUrl());
+      else window.open(this.rawUrl(), '_blank', 'noopener');
+      return;
+    }
     this.loadedEmbed.set(l.embed);
   }
 
@@ -213,14 +188,14 @@ export class VideoCard extends CardPart<'Video'> {
   }
 
   setUrl(e: Event, checkpoint = false): void {
-    const v = (e.target as HTMLInputElement).value.trim();
+    const v = (e.target as HTMLInputElement).value.trim().slice(0, MAX_URL);
     this.edit((d) => (d.url = v), checkpoint);
   }
 
   /** A link pasted into an empty card is used straight away. */
   pasted(e: ClipboardEvent): void {
     const v = e.clipboardData?.getData('text/plain')?.trim();
-    if (!v || !parseWebUrl(v)) return;
+    if (!v || v.length > MAX_URL || !parseWebUrl(v)) return;
     e.preventDefault();
     this.edit((d) => (d.url = v), true);
   }

@@ -3,11 +3,11 @@ import 'reflect-metadata';
 import { type DynamicModule, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { Request, Response } from 'express';
+import { type NextFunction, raw, type Request, type Response } from 'express';
 import { maxBodyMb } from './config';
 import { CTX, type Ctx } from './ctx';
 import { migrate, SCHEMA_VERSION } from './db';
-import { ErrorFilter, requestState } from './http';
+import { ErrorFilter, type NbRequest, requestState } from './http';
 import { AdminRoutes } from './routes/admin';
 import { AuthRoutes, MeRoutes } from './routes/auth';
 import { GeoRoutes } from './routes/geo';
@@ -54,9 +54,13 @@ export async function start(): Promise<{ ctx: Ctx; close: () => Promise<void> }>
   app.set('trust proxy', cfg.trustedProxies);
   app.disable('x-powered-by');
   app.useBodyParser('json', { limit: '32mb' });
-  // Pictures, audio and video; each kind's own limit is checked when the file is stored.
-  app.useBodyParser('raw', { type: ['image/*', 'audio/*', 'video/*', 'application/octet-stream'], limit: `${maxBodyMb(cfg)}mb` });
+  // Pictures (and branding) everywhere, up to MAX_UPLOAD_MB, as before.
+  app.useBodyParser('raw', { type: ['image/*', 'application/octet-stream'], limit: `${cfg.maxUploadMb}mb` });
   app.use('/api', requestState(ctx));
+  // Audio and video (up to MAX_MEDIA_MB) only for file uploads, and only once the sender is known
+  // to be signed in, so nobody can make the server hold large bodies in memory without an account.
+  const mediaBody = raw({ type: ['audio/*', 'video/*'], limit: `${maxBodyMb(cfg)}mb` });
+  app.use('/api/v1/assets', (req: Request, res: Response, next: NextFunction) => ((req as NbRequest).nb?.user ? mediaBody(req, res, next) : next()));
   app.getHttpAdapter()
     .getInstance()
     .get('/.well-known/noteboard.json', async (_req: Request, res: Response) => {

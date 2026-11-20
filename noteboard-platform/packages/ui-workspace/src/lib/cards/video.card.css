@@ -1,0 +1,35 @@
+.nb-video { font-size: 14px; }
+    .nb-video-frame { position: relative; display: block; width: 100%; background: #111; border-radius: 3px 3px 0 0; overflow: hidden; }
+    .nb-video-frame video, .nb-video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: #000; }
+    .nb-video-note { position: absolute; inset: 0; display: grid; place-items: center; color: #b9bcc2; font-size: 13px; padding: 0 16px; text-align: center; }
+    .nb-video-poster { background: linear-gradient(160deg, #2b2e35, #121316); color: #fff; }
+    .nb-video-big {
+      position: absolute; left: 50%; top: 50%; width: 64px; height: 44px; margin: -30px 0 0 -32px; border-radius: 12px !important;
+      display: grid; place-items: center; background: rgba(255, 255, 255, 0.14) !important; color: #fff !important; transition: background 0.12s, transform 0.12s;
+      svg { width: 22px; height: 22px; fill: currentColor; }
+      &:hover { background: #e0443a !important; transform: scale(1.05); }
+      &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    }
+    .nb-video-caption {
+      position: absolute; left: 12px; right: 12px; bottom: 10px; line-height: 1.3; pointer-events: none;
+      b, span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      b { font-size: 14px; font-weight: 600; }
+      span { font-size: 11.5px; color: rgba(255, 255, 255, 0.6); }
+    }
+    .nb-video-foot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; min-height: 18px; }
+    .nb-video-grow { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .nb-video-open { flex: none; color: var(--nb-select); font-size: 12.5px; text-decoration: none; }
+    .nb-video-link { display: flex; gap: 10px; padding: 12px 14px 4px; }
+    .nb-video-tile { flex: none; width: 36px; height: 36px; border-radius: 6px; display: grid; place-items: center; background: #3a3d44; color: #fff; font-size: 14px; }
+    .nb-video-title { font-weight: 600; font-size: 14.5px; overflow-wrap: anywhere; }
+    .nb-video-empty { padding: 14px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .nb-video-form { padding: 10px 14px 12px; display: flex; flex-direction: column; align-items: stretch; .nb-field { margin-bottom: 4px; } > .nb-muted { margin-top: 4px; } }
+    nb-card-view .nb-video .nb-field { padding: 6px 8px; background: var(--nb-canvas); }
+    .nb-video-hint { font-size: 12px; color: var(--nb-muted); margin-bottom: 2px; &.ok { color: #3c9a5f; } }
+    .nb-video-btn {
+      display: inline-flex; align-items: center; align-self: flex-start; gap: 6px; height: 28px; margin-top: 6px; padding: 0 10px !important;
+      border: 1px solid var(--nb-border) !important; border-radius: 4px !important; font-size: 13px !important; white-space: nowrap;
+      svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+      &:hover { background: var(--nb-hover) !important; }
+    }
+    @media (pointer: coarse) { .nb-video-btn { height: 34px; } .nb-video-big { width: 72px; height: 50px; margin: -32px 0 0 -36px; } }

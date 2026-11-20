@@ -522,3 +522,6 @@ nb-icon .faint { stroke: var(--nb-muted); }
     .nb-draw-row:first-child { justify-content: space-between; } }
 }
 .nb-card-loading { min-height: 48px; }
+
+// Draw mode: every stroke reaches the board, even one that starts over a card's buttons or a video.
+.nb-canvas.drawing nb-card-view * { pointer-events: none !important; }

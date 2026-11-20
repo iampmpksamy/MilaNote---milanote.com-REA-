@@ -239,7 +239,7 @@ export class CardView {
       if (focus && focus.card === this.card().id) {
         const f = el.querySelector<HTMLInputElement>(`[data-item="${focus.index}"]`);
         if (f && active !== f) {
-          f.focus();
+          f.focus({ preventScroll: true });
           this.ws.focusItem.set(null);
         }
         return;
@@ -247,7 +247,7 @@ export class CardView {
       if (active && el.contains(active)) return;
       const first = el.querySelector<HTMLInputElement | HTMLTextAreaElement>(':scope > textarea, :scope input, :scope > .nb-todo-head input');
       if (first) {
-        first.focus();
+        first.focus({ preventScroll: true });
         if (this.kind() === 'Board') (first as HTMLInputElement).select();
       }
     });
@@ -292,7 +292,7 @@ export class CardView {
       // Draw the new task now and move the cursor straight into it, so fast typing isn't lost.
       this.appRef.tick();
       const next = this.host.nativeElement.querySelector<HTMLInputElement>(`[data-item="${i + 1}"]`);
-      if (next) next.focus();
+      if (next) next.focus({ preventScroll: true });
       else this.ws.focusItem.set({ card: this.card().id, index: i + 1 });
     } else if (e.key === 'Escape') {
       this.ws.stopEditing();

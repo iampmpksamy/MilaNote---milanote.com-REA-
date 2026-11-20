@@ -24,7 +24,7 @@ export abstract class CardPart<K extends keyof UnionToMap<Content>> {
     afterNextRender(() => {
       const el = this.hostEl.nativeElement;
       if (!this.editing() || el.contains(document.activeElement)) return;
-      el.querySelector<HTMLElement>('textarea, input:not([type=file]):not([type=range]):not([type=color]), [contenteditable=true]')?.focus();
+      el.querySelector<HTMLElement>('textarea, input:not([type=file]):not([type=range]):not([type=color]), [contenteditable=true]')?.focus({ preventScroll: true });
     });
   }
   readonly card = input.required<Card>();
@@ -43,7 +43,7 @@ export abstract class CardPart<K extends keyof UnionToMap<Content>> {
 
   protected edit(f: (d: UnionToMap<Content>[K], c: Card) => void, checkpoint = false): void {
     const kind = this.kindName as string;
-    this.ws.updateCard(
+    this.ws.updateCardAnywhere(
       this.card().id,
       (c) => {
         const d = (c.content as unknown as Record<string, UnionToMap<Content>[K]>)[kind];

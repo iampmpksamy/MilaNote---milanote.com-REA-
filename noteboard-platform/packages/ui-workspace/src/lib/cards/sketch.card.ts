@@ -22,16 +22,7 @@ export { SketchEditor } from './sketch/sketch-editor';
     </svg>
     @if (!sketch().strokes.length) { <div class="nb-sketch-hint">{{ editing() ? 'Sketching…' : 'Double-click to sketch' }}</div> }
   `,
-  styles: `
-    nb-sketch-card { display: block; position: relative; }
-    .nb-sketch-svg { display: block; width: 100%; height: auto; fill: none; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
-    .nb-sketch-paper { background: #fff; border-radius: 3px; overflow: hidden; }
-    .nb-shell.dark .nb-sketch-paper { background: #f1f1ee; }
-    .nb-sketch-hint { position: absolute; inset: 0; display: grid; place-items: center; color: var(--nb-muted); font-size: 13.5px; pointer-events: none; }
-    .nb-sketch-paper + .nb-sketch-hint { color: #8a8d93; }
-    nb-card-view:has(> nb-sketch-card.nb-sketch-clear) { background: transparent !important; box-shadow: none; }
-    nb-card-view:has(> nb-sketch-card.nb-sketch-clear.nb-sketch-blank):not(.selected) { outline: 1px dashed var(--nb-faint); }
-  `,
+  styleUrl: './sketch.card.css',
 })
 export class SketchCard extends CardPart<'Sketch'> {
   protected readonly kindName = 'Sketch' as const;

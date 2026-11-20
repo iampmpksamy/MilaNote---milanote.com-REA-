@@ -16,12 +16,12 @@
  *   connection returns, and every minute while it is visible.
  */
 import { signal } from '@angular/core';
-import { emptyStore, type MergeConflict, mergeStores, renumber, type Store } from '@noteboard/board-model';
+import { clampStore, emptyStore, type MergeConflict, mergeStores, renumber, type Store } from '@noteboard/board-model';
 import type { Prefs, StorageAdapter } from '@noteboard/ui-workspace';
 import { conn } from '../native/connection';
 import { type Draft, dropDraft, getDraft, newOpId } from '../native/drafts';
 import { platform } from '../native/platform';
-import { assetNames, dropReplica, emptyReplica, readAsset, readReplica, type Replica, writeAsset, writeReplica } from '../native/replica';
+import { assetNames, dropReplica, emptyReplica, readAsset, readReplica, refusedAssets, type Replica, writeAsset, writeReplica } from '../native/replica';
 import { api, apiBlob, ApiError } from './api';
 
 interface ServerWorkspace {
@@ -38,7 +38,8 @@ interface Sent {
 }
 type ReplicaWithSent = Replica & { sent?: Sent[] };
 
-const isNetwork = (e: unknown) => e instanceof ApiError && (e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504);
+/** Worth trying again later: no connection, the server busy or restarting, or a timeout. */
+const isNetwork = (e: unknown) => e instanceof ApiError && (e.status === 0 || e.status === 408 || e.status === 429 || e.status >= 500);
 const WAITS = [2, 5, 10, 20, 30, 60];
 
 function deviceLabel(): string {
@@ -198,7 +199,7 @@ export class ServerStorage implements StorageAdapter {
 
   /** Unsent changes or pictures on this device (sign-out asks first). */
   async hasUnsynced(): Promise<boolean> {
-    return this.rep.dirty || this.rep.prefsDirty || (await assetNames(this.key, true)).length > 0;
+    return this.rep.dirty || this.rep.prefsDirty || (await assetNames(this.key, true)).length > 0 || (await refusedAssets(this.key)).length > 0;
   }
 
   /** Deletes this account's copy on this device (after signing out). */
@@ -261,9 +262,12 @@ export class ServerStorage implements StorageAdapter {
       try {
         await api('PUT', `/assets/${encodeURIComponent(name)}`, undefined, { type: a.blob.type, data: a.blob });
       } catch (e) {
-        // Refused for good (not a picture, too big, over quota): keep it here, stop retrying it.
+        // Refused for good (not a supported file, too big, over quota): keep it on this device,
+        // marked, so it isn't retried forever and signing out warns before deleting it.
         if (!(e instanceof ApiError) || isNetwork(e) || e.status === 401) throw e;
-        this.mergeNote.set(`A picture could not be uploaded: ${e.message}`);
+        this.mergeNote.set(`A file could not be uploaded (${e.message}). It is kept on this device only.`);
+        await writeAsset(this.key, name, { blob: a.blob, pending: false, refused: e.message });
+        continue;
       }
       await writeAsset(this.key, name, { blob: a.blob, pending: false });
     }
@@ -276,6 +280,13 @@ export class ServerStorage implements StorageAdapter {
     // 3. Boards.
     if (!this.rep.dirty || this.rep.local === null) return false;
     this.state.set('saving');
+    // Safety net: a card past the server's limits would make every save fail; fit it first.
+    const fitted = JSON.parse(this.rep.local) as Store;
+    if (clampStore(fitted)) {
+      this.rep.local = JSON.stringify(fitted);
+      this.mergeNote.set('A card was longer than the server allows and was shortened to fit.');
+      this.offerSoon();
+    }
     const body = this.rep.local;
     const sent: Sent = { opId: newOpId(), body };
     this.rep.sent = [...(this.rep.sent ?? []), sent].slice(-5);

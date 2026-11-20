@@ -111,43 +111,7 @@ function useClock(destroy: DestroyRef): void {
     </ng-template>
   `,
   imports: [NgTemplateOutlet],
-  styles: [
-    `
-      nb-comment-card { display: block; position: relative; padding: 12px 14px; font-size: 14px; background: inherit; border-radius: inherit; }
-      .nb-comment-tail { position: absolute; left: 18px; bottom: -9px; width: 15px; height: 10px; background: inherit; clip-path: polygon(0 0, 100% 0, 0 100%); }
-      .nb-comment-body.resolved { opacity: 0.68; }
-      .nb-comment-list { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; touch-action: none; }
-      .nb-comment-entry { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; }
-      .nb-comment-avatar { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 600; line-height: 26px; text-align: center; letter-spacing: 0.02em; overflow: hidden; }
-      .nb-comment-meta { display: flex; align-items: baseline; gap: 6px; min-height: 18px; }
-      .nb-comment-meta b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .nb-comment-meta time { flex: none; color: var(--nb-muted); font-size: 12px; }
-      .nb-comment-text { margin-top: 1px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
-      .nb-comment-prompt { color: var(--nb-muted); }
-      .nb-comment-status { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--nb-muted); font-size: 12.5px; }
-      nb-comment-card button.nb-comment-del { flex: none; margin-left: auto; width: 20px; height: 20px; border-radius: 4px; color: var(--nb-muted); font-size: 16px; line-height: 1; }
-      nb-comment-card button.nb-comment-del:hover { color: var(--nb-danger); background: var(--nb-hover); }
-      nb-comment-card button.nb-comment-reopen { margin-left: auto; padding: 2px 8px; border-radius: 4px; color: var(--nb-select); font-size: 12.5px; }
-      nb-comment-card button.nb-comment-reopen:hover { background: var(--nb-hover); }
-      nb-comment-card textarea.nb-comment-input { display: block; box-sizing: border-box; margin-top: 10px; min-height: 34px; max-height: 160px; overflow-y: auto; padding: 6px 8px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--nb-border); background: var(--nb-card); font-size: 14px; line-height: 1.4; }
-      nb-comment-card textarea.nb-comment-input:focus { box-shadow: inset 0 0 0 1px var(--nb-select); }
-      .nb-comment-list + textarea.nb-comment-input { margin-top: 12px; }
-      nb-comment-card > .nb-comment-body > textarea.nb-comment-input:first-child { margin-top: 0; }
-      .nb-comment-bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
-      .nb-comment-hint { flex: 1; min-width: 0; color: var(--nb-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      nb-comment-card button.nb-comment-resolve { flex: none; padding: 1px 8px; border: 1px solid var(--nb-border); border-radius: 4px; color: var(--nb-muted); font-size: 12px; }
-      nb-comment-card button.nb-comment-resolve:hover { background: var(--nb-hover); }
-      nb-comment-card button.nb-comment-resolve.on { color: #2f8a62; border-color: #3d9970; }
-      nb-comment-card button.nb-comment-post { flex: none; margin-left: auto; padding: 1px 10px; border-radius: 4px; background: var(--nb-select); color: #fff; font-size: 12px; }
-      nb-comment-card button.nb-comment-post:disabled { opacity: 0.4; cursor: default; }
-      .dark nb-comment-card button.nb-comment-resolve.on { color: #6cc59a; }
-      @media (max-width: 640px), (pointer: coarse) {
-        .nb-comment-hint { visibility: hidden; }
-        nb-comment-card button.nb-comment-del { width: 28px; height: 28px; margin: -5px -6px -5px auto; }
-        nb-comment-card button.nb-comment-resolve, nb-comment-card button.nb-comment-post, nb-comment-card button.nb-comment-reopen { min-height: 30px; padding: 0 12px; }
-      }
-    `,
-  ],
+  styleUrl: './comment.card.css',
 })
 export class CommentCard extends CardPart<'Comment'> {
   protected readonly kindName = 'Comment' as const;
@@ -186,7 +150,7 @@ export class CommentCard extends CardPart<'Comment'> {
         list.style.touchAction = editing && list.scrollHeight > list.clientHeight + 1 ? 'pan-y' : '';
       }
       if (field) grow(field);
-      if (editing && !this.wasEditing && field && !this.host.nativeElement.contains(document.activeElement)) field.focus();
+      if (editing && !this.wasEditing && field && !this.host.nativeElement.contains(document.activeElement)) field.focus({ preventScroll: true });
       this.seen = n;
       this.wasEditing = editing;
     });
@@ -240,7 +204,7 @@ export class CommentCard extends CardPart<'Comment'> {
     if (f) {
       f.value = '';
       grow(f);
-      f.focus();
+      f.focus({ preventScroll: true });
     }
   }
 

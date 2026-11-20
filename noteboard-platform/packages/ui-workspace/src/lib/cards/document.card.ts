@@ -34,21 +34,7 @@ import { excerpt, wordCount, wordLabel } from './document/format';
       <nb-document-editor [card]="card()" />
     }
   `,
-  styles: `
-    .nb-docface { padding: 14px 16px 12px; }
-    .nb-docface-head { display: flex; align-items: flex-start; gap: 10px; }
-    .nb-docface-glyph { flex: none; width: 20px; height: 24px; margin-top: 1px; fill: none; stroke-linejoin: round; stroke-linecap: round; }
-    .nb-docface-glyph .sheet { fill: var(--nb-card); stroke: var(--nb-icon); stroke-width: 1.4; }
-    .nb-docface-glyph .fold { stroke: var(--nb-icon); stroke-width: 1.4; }
-    .nb-docface-glyph .lines { stroke: var(--nb-muted); stroke-width: 1.3; }
-    .nb-docface-title { flex: 1; min-width: 0; font-weight: 600; font-size: 15px; line-height: 1.35; overflow-wrap: anywhere;
-      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-    .nb-docface-title.untitled { color: var(--nb-muted); }
-    .nb-docface-text { margin-top: 8px; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere;
-      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-    .nb-docface-text.empty { color: var(--nb-muted); font-style: italic; }
-    .nb-docface-meta { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--nb-border); color: var(--nb-muted); font-size: 12px; }
-  `,
+  styleUrl: './document.card.css',
 })
 export class DocumentCard extends CardPart<'Document'> {
   protected readonly kindName = 'Document' as const;

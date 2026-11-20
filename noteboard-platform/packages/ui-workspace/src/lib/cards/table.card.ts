@@ -81,32 +81,7 @@ type Caret = 'start' | 'end';
       </div>
     }
   `,
-  styles: `
-    .nb-tbl { --nb-tbl-line: rgba(128, 128, 128, 0.34); display: block; padding: 12px 14px 14px; font-size: 13.5px; line-height: 1.4; }
-    .nb-tbl-title { display: block; margin: 0 0 8px; font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
-    .nb-tbl-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
-    .nb-tbl.editing .nb-tbl-scroll { touch-action: pan-x; }
-    .nb-tbl-grid { width: 100%; table-layout: fixed; border-collapse: collapse; }
-    .nb-tbl-grid td { padding: 0; vertical-align: top; border: 1px solid var(--nb-tbl-line); }
-    .nb-tbl-head td { background: rgba(128, 128, 128, 0.12); font-weight: 600; }
-    .nb-tbl-text { box-sizing: border-box; min-height: 29px; padding: 5px 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    nb-card-view .nb-tbl-in { display: block; box-sizing: border-box; min-height: 29px; padding: 5px 7px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
-    nb-card-view .nb-tbl-in:focus { box-shadow: inset 0 0 0 1.5px var(--nb-select); }
-    .nb-tbl-grid .nb-tbl-ctl td, .nb-tbl-grid td.nb-tbl-side { border: 0; background: none; text-align: center; vertical-align: middle; }
-    .nb-tbl-side { width: 24px; }
-    .nb-tbl-x { width: 22px; height: 18px; padding: 0; border-radius: 3px; color: var(--nb-muted); font-size: 14px; line-height: 1; opacity: 0.55; }
-    .nb-tbl-x:hover:not(:disabled) { opacity: 1; color: var(--nb-danger); background: var(--nb-hover); }
-    .nb-tbl-x:disabled { opacity: 0.2; cursor: default; }
-    .nb-tbl-add { display: flex; gap: 6px; margin-top: 8px; }
-    .nb-tbl-add button { padding: 3px 9px; border: 1px dashed var(--nb-tbl-line); border-radius: 4px; color: var(--nb-muted); font-size: 12.5px; }
-    .nb-tbl-add button:hover:not(:disabled) { color: var(--nb-text); background: var(--nb-hover); }
-    .nb-tbl-add button:disabled { opacity: 0.4; cursor: default; }
-    @media (pointer: coarse) {
-      .nb-tbl-side { width: 30px; }
-      .nb-tbl-x { width: 28px; height: 26px; opacity: 0.7; }
-      .nb-tbl-add button { padding: 7px 12px; }
-    }
-  `,
+  styleUrl: './table.card.css',
 })
 export class TableCard extends CardPart<'Table'> {
   protected readonly kindName = 'Table' as const;
@@ -210,7 +185,7 @@ export class TableCard extends CardPart<'Table'> {
     this.appRef.tick();
     if (focus) return this.focusCell(focus, 'end');
     // The pressed button may be gone: keep the focus in the card, but don't open a phone keyboard.
-    if (!this.host.nativeElement.contains(document.activeElement)) this.host.nativeElement.querySelector<HTMLElement>('[data-add-row]')?.focus();
+    if (!this.host.nativeElement.contains(document.activeElement)) this.host.nativeElement.querySelector<HTMLElement>('[data-add-row]')?.focus({ preventScroll: true });
   }
 
   // ---------- keyboard and pointer ----------
@@ -238,7 +213,7 @@ export class TableCard extends CardPart<'Table'> {
       e.preventDefault();
       const to = tabTarget(n, cols, { r, c }, e.shiftKey);
       if (to) this.focusCell(to, 'end');
-      else if (e.shiftKey) this.host.nativeElement.querySelector<HTMLInputElement>('[data-tbl-title]')?.focus();
+      else if (e.shiftKey) this.host.nativeElement.querySelector<HTMLInputElement>('[data-tbl-title]')?.focus({ preventScroll: true });
       else this.addRow({ r: r + 1, c: 0 });
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();

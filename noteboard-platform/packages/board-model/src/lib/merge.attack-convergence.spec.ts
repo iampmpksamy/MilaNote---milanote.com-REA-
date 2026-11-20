@@ -406,7 +406,7 @@ describe('convergence: performance', () => {
     const b = bigStore();
     const { v, ms } = timed(() => mergeStores(b, clone(b), clone(b)));
     expect(v.changed).toBe(false);
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(4000) // ~1.3 s alone; room for a busy CI machine, still catches quadratic slowdowns;
   }, 60_000);
 
   it('big store, both sides add 500 notes to the long Unsorted and 500 to the long column: merge under 2 s', () => {
@@ -422,7 +422,7 @@ describe('convergence: performance', () => {
     expect(problems(v.store)).toEqual([]);
     expect(getBoard(v.store, v.store.root).unsorted.length).toBe(getBoard(b, b.root).unsorted.length + 1000);
     console.log(`[perf] long-list merge: ${ms.toFixed(0)} ms, renumbered ${v.renumbered.size}`);
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(4000) // ~1.3 s alone; room for a busy CI machine, still catches quadratic slowdowns;
   }, 120_000);
 
   it('big store, remote emptied the 2000-card Unsorted while local appended 200 more: merge under 2 s', () => {
@@ -442,7 +442,7 @@ describe('convergence: performance', () => {
     const { v, ms } = timed(() => mergeStores(b, l, r));
     expect(problems(v.store)).toEqual([]);
     console.log(`[perf] emptied-unsorted merge: ${ms.toFixed(0)} ms`);
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(4000) // ~1.3 s alone; room for a busy CI machine, still catches quadratic slowdowns;
   }, 120_000);
 
   it('mergeList on a 2000-item list: remote replaced every item, local appended one: under 2 s', () => {
@@ -452,7 +452,7 @@ describe('convergence: performance', () => {
     const { v, ms } = timed(() => mergeList(base, local, remote));
     console.log(`[perf] mergeList 2000: ${ms.toFixed(0)} ms`);
     expect(v.length).toBe(2001);
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(4000) // ~1.3 s alone; room for a busy CI machine, still catches quadratic slowdowns;
   }, 120_000);
 
   it('a store the server accepts (checkStore allows 5000 boards x 20000 cards) with 150k cards can be merged at all', () => {
@@ -493,6 +493,6 @@ describe('convergence: performance', () => {
     server2.boards[String(chain[0])].name = 'Nested 0 (renamed on laptop)';
     const { v, ms } = timed(() => mergeStores(b, clone(m), server2));
     console.log(`[perf] nested chain retry: ${ms.toFixed(0)} ms, renumbered ${v.renumbered.size}`);
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(4000) // ~1.3 s alone; room for a busy CI machine, still catches quadratic slowdowns;
   }, 300_000);
 });

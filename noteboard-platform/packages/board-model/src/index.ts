@@ -4,3 +4,4 @@ export * from './lib/importer';
 export * from './lib/markdown';
 export * from './lib/merge';
 export * from './lib/check';
+export * from './lib/limits';
