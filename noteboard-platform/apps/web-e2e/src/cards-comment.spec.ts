@@ -173,6 +173,7 @@ test.describe('on a phone', () => {
   test('comment: tap to add, Post button, tap again to edit, resolve and reopen with touch', async ({ page }) => {
     await open(page);
     await tool(page, 'Comment').tap();
+    await expect(page.locator('.nb-trash'), "the tap's leftover click pressed nothing").toHaveCount(0);
     await expect(field(page)).toBeFocused();
     await page.keyboard.type('Can we meet on Friday?');
     const card = comment(page);

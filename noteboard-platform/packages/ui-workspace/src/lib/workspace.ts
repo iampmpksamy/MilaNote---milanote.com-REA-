@@ -205,6 +205,18 @@ export class WorkspaceView {
       // (Android shrinks the whole page for the keyboard, iOS only the visual viewport.)
       if (id !== null && vv.height < full * 0.85) this.ws.centerOn.set(id);
     });
+    // Swallow the leftover click of a tap that just created a card from the toolbar.
+    if (typeof window !== 'undefined')
+      window.addEventListener(
+        'click',
+        (ev) => {
+          if (Date.now() < this.ctl.toolbarClickGuardUntil && (ev.target as Element | null)?.closest?.('.nb-toolbar')) {
+            ev.stopPropagation();
+            ev.preventDefault();
+          }
+        },
+        true,
+      );
     // A short buzz when a long press opens the menu: the apps provide `nbHaptic` (native haptics).
     this.ctl.onLongPress = () => {
       const w = window as { nbHaptic?: () => void };

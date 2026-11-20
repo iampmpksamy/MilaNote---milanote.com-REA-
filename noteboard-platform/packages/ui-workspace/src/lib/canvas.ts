@@ -27,6 +27,8 @@ const isField = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCont
 
 export class CanvasControl {
   gesture: Gesture | null = null;
+  /** Until then, clicks on the toolbar are a touch tap's leftover click (see up()) and are ignored. */
+  toolbarClickGuardUntil = 0;
   pointer: Pt = { x: 0, y: 0 };
   space = false;
   band: Rect | null = null;
@@ -630,6 +632,9 @@ export class CanvasControl {
         break;
       }
       case 'tool':
+        // A tap creates the card on finger-up and the toolbar switches to that card's tools; the
+        // browser's click for the same tap would land on whichever new button is under the finger.
+        if (e.pointerType !== 'mouse') this.toolbarClickGuardUntil = Date.now() + 700;
         if (!g.moved) {
           const size = this.ws.defaultSize(g.tool);
           this.createTool(g.tool, { at: this.ws.freeSpot(size, this.canvasSize()) });
